@@ -55,6 +55,7 @@ import type {
   LiveFeedResponse,
   LiveStory,
   NewsletterFeedResponse,
+  ProjectRoute,
   PublicSettings,
   ReminderItem,
   SettingsUpdate,
@@ -79,6 +80,7 @@ import type { AudienceHistorySeries } from "@/lib/audience-charts";
 import { AI_PROVIDER_LABELS, DEFAULT_LOCAL_AI_URLS, isAiReady } from "@/lib/ai-providers";
 import { sortFeedStories, selectNewsletterTopics, newsletterSourceOptions } from "@/lib/feed-priority";
 import { sortIndustryItems, type IndustrySortOrder } from "@/lib/industry";
+import { projectsForStory } from "@/lib/project-routing";
 import { completeTaskItems } from "@/lib/tasks";
 import {
   applyArchiveToPayload,
@@ -96,6 +98,7 @@ type Tab =
   | "settings";
 type SettingsSection =
   | "general"
+  | "projects"
   | "industry"
   | "mentions"
   | "newsletters"
@@ -108,6 +111,7 @@ type Task = TaskItem;
 
 const emptySettings: PublicSettings = {
   general: { workspaceName: "Control Center" },
+  projectRouting: { projects: [] },
   industry: {
     sources: [],
     keywords: [],
@@ -860,9 +864,11 @@ function TodayView({
 function IndustryView({
   saveStory,
   openSettings,
+  projects,
 }: {
   saveStory: (story: LiveStory) => void;
   openSettings: () => void;
+  projects: ProjectRoute[];
 }) {
   const { data, loading, error, refresh, mutate } = useLiveData<LiveFeedResponse>(
     "/api/live/industry",
@@ -1043,6 +1049,11 @@ function IndustryView({
                         {item.importanceScore} importance
                       </Label>
                     )}
+                    {projectsForStory(item, projects).map((project) => (
+                      <Label key={project.id} tone="brief">
+                        {project.name}
+                      </Label>
+                    ))}
                     {view === "history" && (
                       <Label tone="watch">History</Label>
                     )}
@@ -1131,9 +1142,11 @@ function IndustryView({
 function MentionsView({
   saveStory,
   openSettings,
+  projects,
 }: {
   saveStory: (story: LiveStory) => void;
   openSettings: () => void;
+  projects: ProjectRoute[];
 }) {
   const { data, loading, error, refresh, mutate } = useLiveData<LiveFeedResponse>(
     "/api/live/mentions",
@@ -1273,6 +1286,11 @@ function MentionsView({
                         : "Review"}
                     </Label>
                     {item.matchedTerm && <Label>{item.matchedTerm}</Label>}
+                    {projectsForStory(item, projects).map((project) => (
+                      <Label key={project.id} tone="brief">
+                        {project.name}
+                      </Label>
+                    ))}
                   </div>
                   <p>“{item.title}”</p>
                   <div className="mention-page-summary">{item.aiSummary || item.summary}</div>
@@ -2264,6 +2282,7 @@ function SettingsView({
         requested &&
         [
           "general",
+          "projects",
           "industry",
           "mentions",
           "newsletters",
@@ -2347,6 +2366,16 @@ function SettingsView({
         ],
       },
     }));
+  const addProject = () =>
+    setDraft((value) => ({
+      ...value,
+      projectRouting: {
+        projects: [
+          ...value.projectRouting.projects,
+          { id: crypto.randomUUID(), name: "", keywords: [] },
+        ],
+      },
+    }));
   const addAccount = (platform: AudiencePlatform) =>
     setDraft((value) => ({
       ...value,
@@ -2407,6 +2436,7 @@ function SettingsView({
     icon: typeof Activity;
   }> = [
     { id: "general", label: "General", icon: Settings2 },
+    { id: "projects", label: "Projects", icon: Link2 },
     { id: "dailyBrief", label: "Daily brief", icon: LayoutDashboard },
     { id: "industry", label: "Industry", icon: Globe2 },
     { id: "mentions", label: "Mentions", icon: AtSign },
@@ -2521,6 +2551,103 @@ function SettingsView({
                   }
                   placeholder="Control Center"
                 />
+              </div>
+            </Panel>
+          )}
+          {section === "projects" && (
+            <Panel className="settings-panel">
+              <div className="settings-title">
+                <Link2 />
+                <div>
+                  <p className="eyebrow">Project routing</p>
+                  <h2>Connect discoveries to your work</h2>
+                  <p>
+                    Add project names and precise matching phrases. Story labels
+                    are assigned locally from visible evidence; no AI call is
+                    required.
+                  </p>
+                </div>
+              </div>
+              <div className="project-editor">
+                <div className="source-editor-head">
+                  <b>Projects</b>
+                  <button type="button" onClick={addProject}>
+                    <Plus size={15} /> Add project
+                  </button>
+                </div>
+                {!draft.projectRouting.projects.length ? (
+                  <div className="editor-empty">
+                    No project routes yet. Unmatched stories remain available
+                    without a project label.
+                  </div>
+                ) : (
+                  draft.projectRouting.projects.map((project) => (
+                    <div className="project-route-card" key={project.id}>
+                      <div className="project-route-head">
+                        <SettingsInput
+                          aria-label="Project name"
+                          value={project.name}
+                          onChange={(event) =>
+                            setDraft((value) => ({
+                              ...value,
+                              projectRouting: {
+                                projects: value.projectRouting.projects.map(
+                                  (item) =>
+                                    item.id === project.id
+                                      ? { ...item, name: event.target.value }
+                                      : item,
+                                ),
+                              },
+                            }))
+                          }
+                          placeholder="Project name"
+                        />
+                        <button
+                          type="button"
+                          aria-label={`Remove ${project.name || "project"}`}
+                          onClick={() =>
+                            setDraft((value) => ({
+                              ...value,
+                              projectRouting: {
+                                projects: value.projectRouting.projects.filter(
+                                  (item) => item.id !== project.id,
+                                ),
+                              },
+                            }))
+                          }
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                      <TagEditor
+                        label="Matching phrases"
+                        help="Use distinctive package names, repository slugs, product names, or architecture terms. The project name is matched automatically."
+                        values={project.keywords}
+                        onChange={(keywords) =>
+                          setDraft((value) => ({
+                            ...value,
+                            projectRouting: {
+                              projects: value.projectRouting.projects.map(
+                                (item) =>
+                                  item.id === project.id
+                                    ? { ...item, keywords }
+                                    : item,
+                              ),
+                            },
+                          }))
+                        }
+                        placeholder="e.g. openai-agents"
+                      />
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="settings-caveat">
+                <ShieldCheck size={17} />
+                <p>
+                  Matching uses whole words and phrases. A story can belong to
+                  more than one project, and unmatched stories are never hidden.
+                </p>
               </div>
             </Panel>
           )}
@@ -3724,6 +3851,7 @@ export function ControlCenter() {
               addReminder(story.title, story.summary, story.url)
             }
             openSettings={() => openSettings("industry")}
+            projects={settings.projectRouting.projects}
           />
         )}{" "}
         {activeTab === "mentions" && (
@@ -3732,6 +3860,7 @@ export function ControlCenter() {
               addReminder(story.title, story.summary, story.url)
             }
             openSettings={() => openSettings("mentions")}
+            projects={settings.projectRouting.projects}
           />
         )}{" "}
         {activeTab === "reminders" && (

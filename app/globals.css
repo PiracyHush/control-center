@@ -408,6 +408,13 @@ footer { width: min(1380px, calc(100vw - 48px)); min-height: 58px; display: flex
 .settings-field > textarea { min-height: 92px; padding: 11px 12px; resize: vertical; line-height: 1.55; }
 .settings-field > input:focus, .settings-field > textarea:focus, .source-edit-row input:focus, .tag-input input:focus { border-color: var(--coral); box-shadow: 0 0 0 3px var(--coral-soft); }
 .source-editor { margin-top: 22px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.project-editor { margin-top: 22px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.project-route-card { padding: 14px; border-top: 1px solid var(--line); background: var(--paper); }
+.project-route-head { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.project-route-head input { width: 100%; height: 42px; padding: 0 12px; border: 1px solid var(--line-dark); border-radius: 7px; background: var(--card); color: var(--ink); outline: 0; font-size: 10px; }
+.project-route-head input:focus { border-color: var(--coral); box-shadow: 0 0 0 3px var(--coral-soft); }
+.project-route-head button { width: 34px; height: 34px; display: grid; place-items: center; border: 0; background: transparent; color: var(--faint); cursor: pointer; }
+.project-route-card .settings-field { margin-top: 14px; }
 .source-editor-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--paper-deep); }.source-editor-head b { font-size: 9px; }.source-editor-head button, .provider-buttons button, .tag-input button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--coral-dark); font-size: 9px; font-weight: 700; cursor: pointer; }
 .source-editor-head > span { color: var(--muted); font-size: 8px; }
 .ai-key-row { display: grid; grid-template-columns: minmax(130px, .55fr) minmax(200px, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--line); }.ai-key-row > div { display: flex; flex-direction: column; gap: 3px; }.ai-key-row b { font-size: 9px; }.ai-key-row small { color: var(--muted); font-size: 8px; }.ai-key-row > input { width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--line-dark); border-radius: 7px; background: var(--paper); color: var(--ink); font-size: 9px; }.ai-key-row > input:focus { border-color: var(--coral); box-shadow: 0 0 0 3px var(--coral-soft); outline: 0; }

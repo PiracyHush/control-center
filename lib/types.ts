@@ -4,6 +4,12 @@ export type IndustrySource = {
   url: string;
 };
 
+export type ProjectRoute = {
+  id: string;
+  name: string;
+  keywords: string[];
+};
+
 export type AiProvider = "none" | "openai" | "anthropic" | "gemini" | "xai" | "lmstudio" | "ollama";
 export type AiKeyProvider = Exclude<AiProvider, "none">;
 export type LocalAiProvider = Extract<AiKeyProvider, "lmstudio" | "ollama">;
@@ -47,6 +53,9 @@ export type AudienceAccountInput = {
 export type PublicSettings = {
   general: {
     workspaceName: string;
+  };
+  projectRouting: {
+    projects: ProjectRoute[];
   };
   industry: {
     sources: IndustrySource[];

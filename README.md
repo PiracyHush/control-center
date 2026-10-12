@@ -32,13 +32,20 @@ npm run launch -- --port=3001  # use another local port
 The Today page shows the four live areas and links directly to the right Settings section.
 
 1. **Industry:** add any public homepage, RSS/Atom feed, and optional topic phrases.
-2. **Mentions:** add exact names, brands, handles, official domains, distinguishing identity anchors, and known false-positive contexts.
-3. **Audience:** add exact public profile URLs or handles for the platforms you use.
-4. **AI curation (optional):** choose OpenAI, Anthropic, Gemini, or Grok and save that provider's key, or connect a running local model in LM Studio or Ollama. The model selector starts at **Default**; available alternatives load from the selected provider.
-5. **Newsletters (optional):** connect any Gmail account with a read-only OAuth client, choose the Gmail search query, and configure AI curation to extract and rank news.
-6. **Daily brief:** choose how many Industry, Mention, and Newsletter stories appear on Today. Each section can show 1–10 stories or be turned off.
+2. **Projects (optional):** add project names and precise matching phrases to label relevant Industry and Mention cards locally.
+3. **Mentions:** add exact names, brands, handles, official domains, distinguishing identity anchors, and known false-positive contexts.
+4. **Audience:** add exact public profile URLs or handles for the platforms you use.
+5. **AI curation (optional):** choose OpenAI, Anthropic, Gemini, or Grok and save that provider's key, or connect a running local model in LM Studio or Ollama. The model selector starts at **Default**; available alternatives load from the selected provider.
+6. **Newsletters (optional):** connect any Gmail account with a read-only OAuth client, choose the Gmail search query, and configure AI curation to extract and rank news.
+7. **Daily brief:** choose how many Industry, Mention, and Newsletter stories appear on Today. Each section can show 1–10 stories or be turned off.
 
 Collectors run shortly after startup, every 15 minutes while the app remains open, and when **Refresh** is pressed. Industry, Mentions, and Newsletters open from their last saved collector snapshot, so moving between tabs does not repeat public web or Gmail collection.
+
+## Project routing
+
+**Settings → Projects** can label Industry and Mention cards with the work they affect. Each project has a name and optional matching phrases such as a repository slug, package name, product name, or distinctive architecture term. Matching is deterministic, local, case-insensitive, and based on whole words or phrases from the visible story evidence. A story can match multiple projects, and unmatched stories remain visible.
+
+Project routing does not change collection, importance ranking, identity verification, archive state, or AI prompts. It is an organizational layer only, so adding a project cannot admit an otherwise rejected story or hide a discovery.
 
 ## Today and the daily brief
 
