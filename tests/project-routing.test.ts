@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { projectsForStory } from "../lib/project-routing";
+import {
+  projectsForStory,
+  storyMatchesProject,
+} from "../lib/project-routing";
 import type { LiveStory, ProjectRoute } from "../lib/types";
 
 const projects: ProjectRoute[] = [
@@ -83,4 +86,18 @@ test("project routing can use grounded AI and importance explanations", () => {
     ).map((project) => project.id),
     ["metamarket"],
   );
+});
+
+test("project filters use the same routing decision as project labels", () => {
+  const routedStory = story({
+    title: "Reliable model routing for MetaMarket",
+  });
+
+  assert.equal(storyMatchesProject(routedStory, "metamarket", projects), true);
+  assert.equal(
+    storyMatchesProject(routedStory, "proof-of-work", projects),
+    false,
+  );
+  assert.equal(storyMatchesProject(routedStory, "", projects), true);
+  assert.equal(storyMatchesProject(routedStory, "missing", projects), false);
 });

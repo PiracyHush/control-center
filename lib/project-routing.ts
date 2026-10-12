@@ -53,3 +53,18 @@ export function projectsForStory(
     ),
   );
 }
+
+/**
+ * Keep project-filter behavior in the same place as project matching so labels
+ * and filtered queues cannot disagree about where a story belongs.
+ */
+export function storyMatchesProject(
+  story: Parameters<typeof projectsForStory>[0],
+  projectId: string,
+  projects: ProjectRoute[],
+) {
+  if (!projectId) return true;
+  return projectsForStory(story, projects).some(
+    (project) => project.id === projectId,
+  );
+}

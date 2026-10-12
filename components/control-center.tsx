@@ -80,7 +80,10 @@ import type { AudienceHistorySeries } from "@/lib/audience-charts";
 import { AI_PROVIDER_LABELS, DEFAULT_LOCAL_AI_URLS, isAiReady } from "@/lib/ai-providers";
 import { sortFeedStories, selectNewsletterTopics, newsletterSourceOptions } from "@/lib/feed-priority";
 import { sortIndustryItems, type IndustrySortOrder } from "@/lib/industry";
-import { projectsForStory } from "@/lib/project-routing";
+import {
+  projectsForStory,
+  storyMatchesProject,
+} from "@/lib/project-routing";
 import { completeTaskItems } from "@/lib/tasks";
 import {
   applyArchiveToPayload,
@@ -878,7 +881,13 @@ function IndustryView({
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"active" | "history" | "archive">("active");
   const [sortOrder, setSortOrder] = useState<IndustrySortOrder>("important");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
   const archive = useArchiveAction<LiveFeedResponse>("industry", mutate);
+  const activeProjectId = projects.some(
+    (project) => project.id === selectedProjectId,
+  )
+    ? selectedProjectId
+    : "";
   const sourceItems =
     view === "archive"
       ? data?.archivedItems || []
@@ -886,10 +895,12 @@ function IndustryView({
         ? data?.historyItems || []
         : data?.items || [];
   const items = sortIndustryItems(
-    sourceItems.filter((item) =>
-      `${item.title} ${item.summary} ${item.source}`
-        .toLowerCase()
-        .includes(query.toLowerCase()),
+    sourceItems.filter(
+      (item) =>
+        `${item.title} ${item.summary} ${item.source}`
+          .toLowerCase()
+          .includes(query.toLowerCase()) &&
+        storyMatchesProject(item, activeProjectId, projects),
     ),
     sortOrder,
   );
@@ -950,6 +961,25 @@ function IndustryView({
               </button>
             </div>
             <div className="toolbar-actions">
+              {projects.length > 0 && (
+                <label className="sort-control">
+                  <span>Project</span>
+                  <select
+                    aria-label="Filter industry updates by project"
+                    value={activeProjectId}
+                    onChange={(event) =>
+                      setSelectedProjectId(event.target.value)
+                    }
+                  >
+                    <option value="">All projects</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className="sort-control">
                 <span>Sort</span>
                 <select
@@ -1117,14 +1147,18 @@ function IndustryView({
               <Panel className="empty-state">
                 <CheckCircle2 size={24} />
                 <h2>
-                  {view === "archive"
+                  {activeProjectId || query
+                    ? "No updates match these filters"
+                    : view === "archive"
                     ? "Nothing archived yet"
                     : view === "history"
                       ? "Nothing in history yet"
                       : "No current updates found"}
                 </h2>
                 <p>
-                  {view === "archive"
+                  {activeProjectId || query
+                    ? "Choose another project, change the search, or return to All projects."
+                    : view === "archive"
                     ? "Items only appear here after you choose Archive."
                     : view === "history"
                       ? "Updates that left the current 24-hour window remain available here."
@@ -1155,8 +1189,19 @@ function MentionsView({
   );
   const [view, setView] = useState<"active" | "archive">("active");
   const [sortOrder, setSortOrder] = useState<"priority" | "newest" | "oldest">("priority");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
   const archive = useArchiveAction<LiveFeedResponse>("mentions", mutate);
-  const items = sortFeedStories(view === "archive" ? data?.archivedItems || [] : data?.items || [], sortOrder);
+  const activeProjectId = projects.some(
+    (project) => project.id === selectedProjectId,
+  )
+    ? selectedProjectId
+    : "";
+  const items = sortFeedStories(
+    (view === "archive" ? data?.archivedItems || [] : data?.items || []).filter(
+      (item) => storyMatchesProject(item, activeProjectId, projects),
+    ),
+    sortOrder,
+  );
   const highConfidenceCount = (data?.items || []).filter(
     (item) => item.confidence === "high",
   ).length;
@@ -1267,7 +1312,28 @@ function MentionsView({
           <div className="mention-feed reveal delay-2">
             <div className="feed-sort-bar">
               <span><Sparkles size={14} /> {data.curationMode && data.curationMode !== "local" ? `${AI_PROVIDER_LABELS[data.curationMode]} priority & page summaries` : "Built-in priority · enable AI for richer page summaries"}</span>
-              <label>Sort mentions <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value as typeof sortOrder)}><option value="priority">Priority</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></label>
+              <div className="feed-filter-actions">
+                {projects.length > 0 && (
+                  <label>
+                    Project
+                    <select
+                      aria-label="Filter mentions by project"
+                      value={activeProjectId}
+                      onChange={(event) =>
+                        setSelectedProjectId(event.target.value)
+                      }
+                    >
+                      <option value="">All projects</option>
+                      {projects.map((project) => (
+                        <option key={project.id} value={project.id}>
+                          {project.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <label>Sort mentions <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value as typeof sortOrder)}><option value="priority">Priority</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></label>
+              </div>
             </div>
             {items.map((item) => (
               <article className="mention-card" key={item.id}>
@@ -1344,12 +1410,16 @@ function MentionsView({
               <Panel className="empty-state">
                 <CheckCircle2 size={26} />
                 <h2>
-                  {view === "archive"
+                  {activeProjectId
+                    ? "No mentions match this project"
+                    : view === "archive"
                     ? "No mention history"
                     : "No verified new mentions found"}
                 </h2>
                 <p>
-                  {view === "archive"
+                  {activeProjectId
+                    ? "Choose another project or return to All projects."
+                    : view === "archive"
                     ? "Archived and expired mentions remain available here."
                     : "The news collectors and any enabled broad-web research found no new URL with direct identity evidence in the past seven days. Previously archived URLs stay out of this queue."}
                 </p>
