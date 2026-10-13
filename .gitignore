@@ -17,3 +17,5 @@
 # typescript
 *.tsbuildinfo
 .gstack/
+/graphify-out/
+/.ua/
