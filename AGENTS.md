@@ -12,6 +12,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 - Use `graphify query "<question>"` for architecture or cross-file questions when `graphify-out/graph.json` exists. After meaningful code changes, run `graphify update . --no-cluster`. Skip graph work for documentation-only and small isolated edits.
 - Use gstack selectively: `plan-eng-review` for architecture or state-model changes, `investigate` for difficult failures, `review` or `test-audit` after substantive code changes, and `design-review` or `qa` for visible UI changes.
+- These rules apply to both Codex and Claude Code. Codex installs gstack skills with a `gstack-` prefix (`gstack-review`); Claude Code uses the short names. If a named skill is not installed in the current agent, do the equivalent step with that agent's own review or browser tooling and say which substitute was used. See `docs/TOOL_WORKFLOW_INTEGRATION_HANDOFF.md`.
 - Treat Last30Days as a discovery tool, never as proof that an implementation, security claim, or dependency choice is correct. Verify important decisions against primary sources.
 - Use Stop Slop only to improve nontechnical prose such as README, release notes, and product copy. Preserve exact technical, security, and privacy claims.
 - When runtime code, tests, dependencies, or build behavior change, run `npm run check`. For visible UI changes, also run `npm run smoke` and browser QA.

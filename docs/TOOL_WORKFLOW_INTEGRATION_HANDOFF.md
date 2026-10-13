@@ -19,11 +19,53 @@ The repository was healthy before workflow integration:
 
 These results are the comparison point for later changes.
 
+## Running on Claude Code and Codex
+
+The workflow is the same in both agents. `CLAUDE.md` imports `AGENTS.md`, so both read the same rules. What differs is where each agent finds its tools.
+
+| Tool | Codex | Claude Code |
+| --- | --- | --- |
+| Graphify | Works: shared command-line tool | Works: shared command-line tool |
+| `npm run check`, `npm run smoke` | Works | Works |
+| gstack | Installed in `~/.codex/skills` with `gstack-` prefixed names such as `gstack-review` | Installed in `~/.claude/skills` with short names such as `review` |
+| Stop Slop | Installed in `~/.codex/skills/stop-slop` | Installed in `~/.claude/skills/stop-slop` |
+| Last30Days, Understand Anything | Installed in `~/.agents/skills` | Copied into `~/.claude/skills` |
+
+When a named skill is missing in the current agent, do the equivalent step with what that agent has instead of skipping it: its own code review for `review`, its own browser tooling for `qa` and `design-review`, a written plan checked against the source for `plan-eng-review`. Record which substitute was used.
+
+### Windows packaged-app storage
+
+The Codex and Claude desktop apps are packaged Windows apps. Each one redirects what it writes under `%APPDATA%` and `%LOCALAPPDATA%` into its own private copy under `%LOCALAPPDATA%\Packages\<app>\LocalCache`. A tool that one agent installs under AppData is therefore invisible to the other agent and to a regular terminal, even though its launcher in `~/.local/bin` is shared.
+
+Graphify was first installed this way from Codex and failed everywhere else with `uv trampoline failed to canonicalize script path`. It now lives outside AppData:
+
+```powershell
+$env:UV_TOOL_DIR = "$HOME\.local\share\uv\tools"
+$env:UV_PYTHON_INSTALL_DIR = "$HOME\.local\share\uv\python"
+uv tool install "graphifyy==0.9.88" --python 3.12 --force
+```
+
+Set the same two variables before any later `uv tool upgrade` or `uv tool uninstall` of Graphify. Install shared tools from a regular terminal, or into a path outside AppData, so both agents see one copy.
+
+### Adding the skills to Claude Code
+
+Claude Code reads global skills from `~/.claude/skills`. gstack and Stop Slop were installed there on 2026-10-13 with the commands below. Restart Claude Code after running them so the skills are discovered. On Windows the install copies files, so re-run the first command after every `git pull` in `~/gstack`.
+
+```bash
+cd ~/gstack && ./setup --host claude --no-plan-tune-hooks --no-timeline-stop-hook --no-browser
+```
+
+```bash
+cp -r ~/.codex/skills/stop-slop ~/.claude/skills/stop-slop
+```
+
+The two `--no-…-hook` flags stop gstack from registering optional hooks in `~/.claude/settings.json`. `--no-browser` skipped the Chromium download for the Claude install, so the browser skills (`qa`, `qa-only`, `design-review`, `browse`) fetch it on first use, or re-run setup without that flag. An explicit `--host` never changes the Codex install, and the `disabled_skills` list in `~/.gstack/config.yaml` applies to both. Confirm with `./setup --status`. Last30Days and the nine Understand Anything skills were copied into `~/.claude/skills` from the Codex install on 2026-10-13; re-copy them after upgrading either tool. Understand Anything locates its plugin checkout through `~/.understand-anything-plugin`, and Last30Days needs `python3.12`, whose launcher in `~/.local/bin` now points at the shared `~/.local/share/uv/python` install.
+
 ## Installed tools
 
 ### Graphify 0.9.88
 
-Graphify is installed as a `uv` tool using a managed Python 3.12 runtime. It builds a local code graph so a developer can ask questions about relationships instead of reading every file manually.
+Graphify is installed as a `uv` tool using a managed Python 3.12 runtime, in `~/.local/share/uv` so that Codex, Claude Code, and a regular terminal all run the same copy. It builds a local code graph so a developer can ask questions about relationships instead of reading every file manually.
 
 An initial code-only graph was generated with:
 
@@ -167,7 +209,7 @@ graphify --version
 gstack doctor
 ```
 
-Graphify can be removed with `uv tool uninstall graphifyy`. Last30Days can be removed with the skills manager. Stop Slop can be removed from the Codex skills directory. Understand Anything includes an uninstall mode in its official installer; run that installer with `-Uninstall codex` if it is no longer wanted.
+Graphify can be removed with `uv tool uninstall graphifyy` after setting `UV_TOOL_DIR` as shown above. Last30Days can be removed with the skills manager. Stop Slop can be removed from the Codex skills directory. Understand Anything includes an uninstall mode in its official installer; run that installer with `-Uninstall codex` if it is no longer wanted.
 
 If a tool becomes noisy, slow, or duplicates another tool, disable it before adding a replacement. The workflow exists to shorten the path from uncertainty to evidence.
 
