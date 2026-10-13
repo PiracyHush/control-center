@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { browserFacingUrl } from "@/lib/google-oauth";
 import { readSettings, saveGmailTokens } from "@/lib/server/settings";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
+  const local = (path: string) =>
+    browserFacingUrl(path, request.url, request.headers.get("host"));
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
   const expectedState = request.cookies.get("cc_google_oauth_state")?.value;
-  const destination = new URL("/?tab=settings&section=newsletters", request.url);
+  const destination = local("/?tab=settings&section=newsletters");
   if (!code || !state || state !== expectedState) {
     destination.searchParams.set("error", "oauth-state");
     return NextResponse.redirect(destination);
   }
   const settings = await readSettings();
-  const redirectUri = new URL("/api/auth/google/callback", request.url).toString();
+  const redirectUri = local("/api/auth/google/callback").toString();
   try {
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
