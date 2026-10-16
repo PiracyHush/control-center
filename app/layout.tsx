@@ -1,9 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Control Center",
   description: "A self-hosted dashboard for signals, mentions, newsletters, audience, reminders, and tasks.",
+  applicationName: "Control Center",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#101411",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

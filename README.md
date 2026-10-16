@@ -18,6 +18,20 @@ npm run launch
 
 Prefer a ZIP? Download **Code → Download ZIP** on GitHub, extract it, open a terminal in the extracted folder, and run `npm run launch`. Git is only required for the clone/update workflow.
 
+### Open it like an app (optional)
+
+**Install it:** with the dashboard open in Chrome or Edge, choose **Install Control Center** from the address bar or the browser menu. It gets its own window, a taskbar and Start menu icon, and jump-list shortcuts to Today, Tasks, and Updates. It is still the same local server; nothing is uploaded.
+
+**Start it at sign-in (Windows):**
+
+```bash
+npm run autostart:install   # start 30 seconds after you sign in, in the background
+npm run autostart:status    # is the task registered, and is the dashboard running?
+npm run autostart:remove    # stop starting it at sign-in
+```
+
+This registers a per-user scheduled task named **Control Center** that runs the launcher hidden, without administrator rights. Output goes to `logs/launch.log`. To start it right away without signing out, run `Start-ScheduledTask -TaskName "Control Center"` in PowerShell. Collectors keep refreshing every 15 minutes while it runs, so expect it to use some memory in the background. If you changed the source code since the last build, the first start after sign-in rebuilds the app first and takes a minute or two. If you move the project folder, run `npm run autostart:install` again from the new location.
+
 Useful commands:
 
 ```bash

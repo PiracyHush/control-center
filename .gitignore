@@ -19,3 +19,6 @@
 .gstack/
 /graphify-out/
 /.ua/
+
+# launcher output from the Windows sign-in task
+/logs/
