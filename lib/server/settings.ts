@@ -16,6 +16,7 @@ import type {
   AiKeyProvider,
   LocalAiProvider,
   AudienceAccountInput,
+  ProjectRoute,
   PublicSettings,
   SettingsUpdate,
 } from "@/lib/types";
@@ -32,6 +33,7 @@ import {
 import { isValidPublicProfileUrl } from "@/lib/public-metrics";
 import { AI_KEY_PROVIDERS, DEFAULT_LOCAL_AI_URLS, aiEnvironmentKey, cleanAiModelOverride, isAiKeyProvider, isLocalAiProvider, isValidAiModelId, localAiBaseUrl } from "@/lib/ai-providers";
 import { defaultBriefSections, normalizeBriefSections } from "@/lib/daily-brief-snapshot";
+import { MAX_PROJECT_KEYWORDS, MAX_PROJECT_ROUTES } from "@/lib/project-routing";
 
 type StoredAudienceAccount = Omit<
   AudienceAccountInput,
@@ -42,6 +44,7 @@ type StoredAudienceAccount = Omit<
 
 export type StoredSettings = {
   general: { workspaceName: string };
+  projectRouting: PublicSettings["projectRouting"];
   industry: PublicSettings["industry"];
   mentions: PublicSettings["mentions"];
   newsletters: {
@@ -65,6 +68,7 @@ export type StoredSettings = {
 
 const defaults: StoredSettings = {
   general: { workspaceName: "Control Center" },
+  projectRouting: { projects: [] },
   industry: {
     sources: [],
     keywords: [],
@@ -164,6 +168,9 @@ export async function readSettings(): Promise<StoredSettings> {
     ) as Partial<StoredSettings>;
     return {
       general: { ...defaults.general, ...parsed.general },
+      projectRouting: {
+        projects: cleanProjectRoutes(parsed.projectRouting?.projects ?? []),
+      },
       industry: { ...defaults.industry, ...parsed.industry },
       mentions: { ...defaults.mentions, ...parsed.mentions },
       newsletters: { ...defaults.newsletters, ...parsed.newsletters },
@@ -220,6 +227,7 @@ export function toPublicSettings(settings: StoredSettings): PublicSettings {
         : "none" as const;
   return {
     general: settings.general,
+    projectRouting: settings.projectRouting,
     industry: settings.industry,
     mentions: settings.mentions,
     newsletters: {
@@ -289,6 +297,28 @@ function environmentAiApiKey(provider: AiKeyProvider) {
 
 function cleanList(values: string[]) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function cleanProjectRoutes(projects: ProjectRoute[]) {
+  if (!Array.isArray(projects))
+    throw new Error("Project routing settings must be a list.");
+  if (projects.length > MAX_PROJECT_ROUTES)
+    throw new Error(`Project routing supports up to ${MAX_PROJECT_ROUTES} projects.`);
+
+  const names = new Set<string>();
+  return projects.flatMap((project) => {
+    const name = project?.name?.trim().slice(0, 80) ?? "";
+    const keywords = cleanList(Array.isArray(project?.keywords) ? project.keywords : [])
+      .map((keyword) => keyword.slice(0, 80));
+    if (!name && !keywords.length) return [];
+    if (!name) throw new Error("Each project route needs a name.");
+    if (keywords.length > MAX_PROJECT_KEYWORDS)
+      throw new Error(`${name}: add no more than ${MAX_PROJECT_KEYWORDS} matching phrases.`);
+    const identity = name.toLocaleLowerCase();
+    if (names.has(identity)) throw new Error(`${name}: project names must be unique.`);
+    names.add(identity);
+    return [{ id: project.id?.trim() || randomUUID(), name, keywords }];
+  });
 }
 
 function cleanIndustrySources(sources: SettingsUpdate["industry"]["sources"]) {
@@ -420,6 +450,11 @@ export async function updateSettings(update: SettingsUpdate) {
       general: {
         workspaceName:
           update.general.workspaceName.trim() || defaults.general.workspaceName,
+      },
+      projectRouting: {
+        projects: cleanProjectRoutes(
+          update.projectRouting?.projects ?? current.projectRouting.projects,
+        ),
       },
       industry: {
         sources: cleanIndustrySources(update.industry.sources),

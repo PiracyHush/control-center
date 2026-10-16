@@ -21,6 +21,7 @@ registerHooks({
 function settingsFor(provider: AiKeyProvider, model = ""): StoredSettings {
   return {
     general: { workspaceName: "Test workspace" },
+    projectRouting: { projects: [] },
     industry: { sources: [], keywords: [], description: "Manufacturing", excludedTerms: [], dailyLimit: 30 },
     mentions: { terms: [], websites: [], identityAnchors: [], negativeTerms: [], strictMode: true, excludeOwnedSites: true },
     newsletters: { googleClientId: "", googleClientSecret: "", connectedEmail: "", refreshToken: "", accessToken: "", accessTokenExpiresAt: 0, gmailQuery: "" },

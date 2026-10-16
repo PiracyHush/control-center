@@ -4,6 +4,12 @@ export type IndustrySource = {
   url: string;
 };
 
+export type ProjectRoute = {
+  id: string;
+  name: string;
+  keywords: string[];
+};
+
 export type AiProvider = "none" | "openai" | "anthropic" | "gemini" | "xai" | "lmstudio" | "ollama";
 export type AiKeyProvider = Exclude<AiProvider, "none">;
 export type LocalAiProvider = Extract<AiKeyProvider, "lmstudio" | "ollama">;
@@ -47,6 +53,9 @@ export type AudienceAccountInput = {
 export type PublicSettings = {
   general: {
     workspaceName: string;
+  };
+  projectRouting: {
+    projects: ProjectRoute[];
   };
   industry: {
     sources: IndustrySource[];
@@ -262,6 +271,10 @@ export type ReminderItem = {
 };
 
 export type TaskItem = {
+  projectId?: string;
+  handoffId?: string;
+  handoffProjectId?: string;
+  actionId?: string;
   id: string | number;
   title: string;
   description: string;
@@ -273,6 +286,14 @@ export type TaskItem = {
   completedAt?: string;
   seriesId?: string | number;
   recurrenceAnchorDay?: number;
+  /** A concrete action that takes about two minutes and gets the task started. */
+  firstStep?: string;
+  /** How many times the task has been put off with "Not today". */
+  postponedCount?: number;
+  /** Local day (YYYY-MM-DD) "Not today" was last used, so it is not offered again that day. */
+  postponedOn?: string;
+  /** Local day (YYYY-MM-DD) the task was chosen for by a shutdown note. */
+  pinnedFor?: string;
 };
 
 export type WorkspaceState = {

@@ -13,6 +13,7 @@
     "doctor": "node scripts/doctor.mjs",
     "backup": "node scripts/backup.mjs",
     "ingest": "node scripts/ingest.mjs",
+    "handoff:export": "node scripts/export-handoff.mjs",
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",

@@ -32,19 +32,42 @@ npm run launch -- --port=3001  # use another local port
 The Today page shows the four live areas and links directly to the right Settings section.
 
 1. **Industry:** add any public homepage, RSS/Atom feed, and optional topic phrases.
-2. **Mentions:** add exact names, brands, handles, official domains, distinguishing identity anchors, and known false-positive contexts.
-3. **Audience:** add exact public profile URLs or handles for the platforms you use.
-4. **AI curation (optional):** choose OpenAI, Anthropic, Gemini, or Grok and save that provider's key, or connect a running local model in LM Studio or Ollama. The model selector starts at **Default**; available alternatives load from the selected provider.
-5. **Newsletters (optional):** connect any Gmail account with a read-only OAuth client, choose the Gmail search query, and configure AI curation to extract and rank news.
-6. **Daily brief:** choose how many Industry, Mention, and Newsletter stories appear on Today. Each section can show 1–10 stories or be turned off.
+2. **Projects (optional):** add project names and precise matching phrases to label relevant Industry and Mention cards locally.
+3. **Mentions:** add exact names, brands, handles, official domains, distinguishing identity anchors, and known false-positive contexts.
+4. **Audience:** add exact public profile URLs or handles for the platforms you use.
+5. **AI curation (optional):** choose OpenAI, Anthropic, Gemini, or Grok and save that provider's key, or connect a running local model in LM Studio or Ollama. The model selector starts at **Default**; available alternatives load from the selected provider.
+6. **Newsletters (optional):** connect any Gmail account with a read-only OAuth client, choose the Gmail search query, and configure AI curation to extract and rank news.
+7. **Daily brief:** choose how many Industry, Mention, and Newsletter stories appear on Today. Each section can show 1–10 stories or be turned off.
 
 Collectors run shortly after startup, every 15 minutes while the app remains open, and when **Refresh** is pressed. Industry, Mentions, and Newsletters open from their last saved collector snapshot, so moving between tabs does not repeat public web or Gmail collection.
+
+## Project routing
+
+The **Updates** tab imports structured agent handoffs, keeps a project history, and lets you choose proposed actions to add to Tasks. Updates and Tasks have separate project filters. Download a project-specific JSON template from Updates and give it to your coding agent. See [Project handoffs and tasks](docs/PROJECT_HANDOFFS.md).
+
+**Settings → Projects** can label Industry and Mention cards with the work they affect. Each project has a name and optional matching phrases such as a repository slug, package name, product name, or distinctive architecture term. Matching is deterministic, local, case-insensitive, and based on whole words or phrases from the visible story evidence. A story can match multiple projects, and unmatched stories remain visible. Industry and Mentions each provide an **All projects** filter so you can focus either queue on one configured project without changing the saved stories.
+
+Project routing does not change collection, importance ranking, identity verification, archive state, or AI prompts. It is an organizational layer only, so adding a project cannot admit an otherwise rejected story or hide a discovery.
 
 ## Today and the daily brief
 
 The daily brief is a quick snapshot of the saved reading queues, not a separate collection job. It shows the highest-priority active stories from each enabled tab, five per section by default. Choose **Customize** on Today or **Settings → Daily brief** to change those counts. Archived and expired stories are excluded; opening Today does not make additional AI, web, or Gmail calls. Each section links to the full tab and shows when that source was last checked.
 
 Private actions, meetings, and messages are a separate optional section below the snapshot. They require the connector bridge described below; the three-tab snapshot does not.
+
+## Focus
+
+The top of Today is about doing, not reading. It uses only local data and makes no AI or network calls; task text is never sent to a provider.
+
+- **Do this next** shows one open task. A task chosen in the previous day's shutdown note comes first, then anything due, then the configured project that has gone longest without activity, then tasks that already have a first step.
+- **First step** is an optional line on every task: something you could do in about two minutes. Add it when creating a task or from the card, which also offers up to three one-click suggestions chosen locally from the verb the task title starts with.
+- **Not today** moves a task to tomorrow and does not offer it again that day. After three postponements a task is stuck: it stops being offered and Today asks you to break it down, schedule it, or delete it.
+- **Shipping streak** counts days on which a task was completed or a project agent filed a report under Updates. Opening the dashboard or reading stories does not count. A day in progress does not break the streak.
+- **Project activity** shows how long each configured project has been idle and how many tasks it has open.
+- **Shut down for the day** closes the day in one click. It records what was completed, reported by project agents, and put off today, picks tomorrow's task the way tomorrow's card would, pins it, and shows a Today and Tomorrow catch-up in place of the button. Nothing is invented: an empty day is recorded as empty. **Edit note** lets you rewrite the summary or choose a different task for tomorrow.
+- **Weekly review** summarizes the last seven days: shipped days, tasks completed and agent reports by project, projects with no activity, and stuck tasks.
+
+Shutdown notes are stored in the local SQLite database and are included in `npm run backup`.
 
 ## Industry collection
 

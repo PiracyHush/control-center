@@ -55,6 +55,7 @@ import type {
   LiveFeedResponse,
   LiveStory,
   NewsletterFeedResponse,
+  ProjectRoute,
   PublicSettings,
   ReminderItem,
   SettingsUpdate,
@@ -79,7 +80,16 @@ import type { AudienceHistorySeries } from "@/lib/audience-charts";
 import { AI_PROVIDER_LABELS, DEFAULT_LOCAL_AI_URLS, isAiReady } from "@/lib/ai-providers";
 import { sortFeedStories, selectNewsletterTopics, newsletterSourceOptions } from "@/lib/feed-priority";
 import { sortIndustryItems, type IndustrySortOrder } from "@/lib/industry";
+import {
+  projectsForStory,
+  storyMatchesProject,
+} from "@/lib/project-routing";
 import { completeTaskItems } from "@/lib/tasks";
+import { MAX_FIRST_STEP_LENGTH, isStuck, postponeTask } from "@/lib/focus";
+import { FocusPanel } from "@/components/focus-panel";
+import { ProjectUpdates } from "@/components/project-updates";
+import { taskMatchesProject } from "@/lib/project-handoffs";
+import type { ProjectHandoff, HandoffAction, SavedHandoff } from "@/lib/project-handoffs";
 import {
   applyArchiveToPayload,
   type CachedFeedPayload,
@@ -93,9 +103,11 @@ type Tab =
   | "audience"
   | "newsletters"
   | "tasks"
+  | "updates"
   | "settings";
 type SettingsSection =
   | "general"
+  | "projects"
   | "industry"
   | "mentions"
   | "newsletters"
@@ -108,6 +120,7 @@ type Task = TaskItem;
 
 const emptySettings: PublicSettings = {
   general: { workspaceName: "Control Center" },
+  projectRouting: { projects: [] },
   industry: {
     sources: [],
     keywords: [],
@@ -149,6 +162,7 @@ const nav: { id: Tab; label: string; icon: typeof Activity }[] = [
   { id: "audience", label: "Audience", icon: Users },
   { id: "newsletters", label: "Newsletters", icon: Newspaper },
   { id: "tasks", label: "Tasks", icon: ListTodo },
+  { id: "updates", label: "Updates", icon: Activity },
 ];
 
 function classNames(...values: Array<string | false | null | undefined>) {
@@ -647,12 +661,14 @@ function newsletterSetupReady(settings: PublicSettings) {
 function TodayView({
   settings,
   tasks,
+  setTasks,
   goTo,
   openSettings,
   addBriefTask,
 }: {
   settings: PublicSettings;
   tasks: Task[];
+  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   goTo: (tab: Tab) => void;
   openSettings: (section?: SettingsSection) => void;
   addBriefTask: (item: DailyBriefItem) => void;
@@ -675,7 +691,7 @@ function TodayView({
     <div className="view">
       <PageHeading
         eyebrow={today}
-        title="Good morning."
+        title={`Good ${new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"}.`}
         description="A quiet starting point for the sources, signals, and work you choose to track."
         action={
           <button
@@ -685,6 +701,12 @@ function TodayView({
             <Settings2 size={15} /> Settings
           </button>
         }
+      />
+      <FocusPanel
+        tasks={tasks}
+        setTasks={setTasks}
+        projects={settings.projectRouting.projects}
+        openTasks={() => goTo("tasks")}
       />
       <div className="brief-banner reveal delay-1">
         <div className="brief-mark">
@@ -860,9 +882,11 @@ function TodayView({
 function IndustryView({
   saveStory,
   openSettings,
+  projects,
 }: {
   saveStory: (story: LiveStory) => void;
   openSettings: () => void;
+  projects: ProjectRoute[];
 }) {
   const { data, loading, error, refresh, mutate } = useLiveData<LiveFeedResponse>(
     "/api/live/industry",
@@ -872,7 +896,13 @@ function IndustryView({
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"active" | "history" | "archive">("active");
   const [sortOrder, setSortOrder] = useState<IndustrySortOrder>("important");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
   const archive = useArchiveAction<LiveFeedResponse>("industry", mutate);
+  const activeProjectId = projects.some(
+    (project) => project.id === selectedProjectId,
+  )
+    ? selectedProjectId
+    : "";
   const sourceItems =
     view === "archive"
       ? data?.archivedItems || []
@@ -880,10 +910,12 @@ function IndustryView({
         ? data?.historyItems || []
         : data?.items || [];
   const items = sortIndustryItems(
-    sourceItems.filter((item) =>
-      `${item.title} ${item.summary} ${item.source}`
-        .toLowerCase()
-        .includes(query.toLowerCase()),
+    sourceItems.filter(
+      (item) =>
+        `${item.title} ${item.summary} ${item.source}`
+          .toLowerCase()
+          .includes(query.toLowerCase()) &&
+        storyMatchesProject(item, activeProjectId, projects),
     ),
     sortOrder,
   );
@@ -944,6 +976,25 @@ function IndustryView({
               </button>
             </div>
             <div className="toolbar-actions">
+              {projects.length > 0 && (
+                <label className="sort-control">
+                  <span>Project</span>
+                  <select
+                    aria-label="Filter industry updates by project"
+                    value={activeProjectId}
+                    onChange={(event) =>
+                      setSelectedProjectId(event.target.value)
+                    }
+                  >
+                    <option value="">All projects</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className="sort-control">
                 <span>Sort</span>
                 <select
@@ -1043,6 +1094,11 @@ function IndustryView({
                         {item.importanceScore} importance
                       </Label>
                     )}
+                    {projectsForStory(item, projects).map((project) => (
+                      <Label key={project.id} tone="brief">
+                        {project.name}
+                      </Label>
+                    ))}
                     {view === "history" && (
                       <Label tone="watch">History</Label>
                     )}
@@ -1106,14 +1162,18 @@ function IndustryView({
               <Panel className="empty-state">
                 <CheckCircle2 size={24} />
                 <h2>
-                  {view === "archive"
+                  {activeProjectId || query
+                    ? "No updates match these filters"
+                    : view === "archive"
                     ? "Nothing archived yet"
                     : view === "history"
                       ? "Nothing in history yet"
                       : "No current updates found"}
                 </h2>
                 <p>
-                  {view === "archive"
+                  {activeProjectId || query
+                    ? "Choose another project, change the search, or return to All projects."
+                    : view === "archive"
                     ? "Items only appear here after you choose Archive."
                     : view === "history"
                       ? "Updates that left the current 24-hour window remain available here."
@@ -1131,9 +1191,11 @@ function IndustryView({
 function MentionsView({
   saveStory,
   openSettings,
+  projects,
 }: {
   saveStory: (story: LiveStory) => void;
   openSettings: () => void;
+  projects: ProjectRoute[];
 }) {
   const { data, loading, error, refresh, mutate } = useLiveData<LiveFeedResponse>(
     "/api/live/mentions",
@@ -1142,8 +1204,19 @@ function MentionsView({
   );
   const [view, setView] = useState<"active" | "archive">("active");
   const [sortOrder, setSortOrder] = useState<"priority" | "newest" | "oldest">("priority");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
   const archive = useArchiveAction<LiveFeedResponse>("mentions", mutate);
-  const items = sortFeedStories(view === "archive" ? data?.archivedItems || [] : data?.items || [], sortOrder);
+  const activeProjectId = projects.some(
+    (project) => project.id === selectedProjectId,
+  )
+    ? selectedProjectId
+    : "";
+  const items = sortFeedStories(
+    (view === "archive" ? data?.archivedItems || [] : data?.items || []).filter(
+      (item) => storyMatchesProject(item, activeProjectId, projects),
+    ),
+    sortOrder,
+  );
   const highConfidenceCount = (data?.items || []).filter(
     (item) => item.confidence === "high",
   ).length;
@@ -1254,7 +1327,28 @@ function MentionsView({
           <div className="mention-feed reveal delay-2">
             <div className="feed-sort-bar">
               <span><Sparkles size={14} /> {data.curationMode && data.curationMode !== "local" ? `${AI_PROVIDER_LABELS[data.curationMode]} priority & page summaries` : "Built-in priority · enable AI for richer page summaries"}</span>
-              <label>Sort mentions <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value as typeof sortOrder)}><option value="priority">Priority</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></label>
+              <div className="feed-filter-actions">
+                {projects.length > 0 && (
+                  <label>
+                    Project
+                    <select
+                      aria-label="Filter mentions by project"
+                      value={activeProjectId}
+                      onChange={(event) =>
+                        setSelectedProjectId(event.target.value)
+                      }
+                    >
+                      <option value="">All projects</option>
+                      {projects.map((project) => (
+                        <option key={project.id} value={project.id}>
+                          {project.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <label>Sort mentions <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value as typeof sortOrder)}><option value="priority">Priority</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></label>
+              </div>
             </div>
             {items.map((item) => (
               <article className="mention-card" key={item.id}>
@@ -1273,6 +1367,11 @@ function MentionsView({
                         : "Review"}
                     </Label>
                     {item.matchedTerm && <Label>{item.matchedTerm}</Label>}
+                    {projectsForStory(item, projects).map((project) => (
+                      <Label key={project.id} tone="brief">
+                        {project.name}
+                      </Label>
+                    ))}
                   </div>
                   <p>“{item.title}”</p>
                   <div className="mention-page-summary">{item.aiSummary || item.summary}</div>
@@ -1326,12 +1425,16 @@ function MentionsView({
               <Panel className="empty-state">
                 <CheckCircle2 size={26} />
                 <h2>
-                  {view === "archive"
+                  {activeProjectId
+                    ? "No mentions match this project"
+                    : view === "archive"
                     ? "No mention history"
                     : "No verified new mentions found"}
                 </h2>
                 <p>
-                  {view === "archive"
+                  {activeProjectId
+                    ? "Choose another project or return to All projects."
+                    : view === "archive"
                     ? "Archived and expired mentions remain available here."
                     : "The news collectors and any enabled broad-web research found no new URL with direct identity evidence in the past seven days. Previously archived URLs stay out of this queue."}
                 </p>
@@ -1919,13 +2022,19 @@ function NewslettersView({
 function TasksView({
   tasks,
   setTasks,
+  projects,
 }: {
   tasks: Task[];
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  projects: ProjectRoute[];
 }) {
+  const [projectFilter, setProjectFilter] = useState("");
+  const [taskProject, setTaskProject] = useState("");
+  const filteredTasks = tasks.filter((task) => taskMatchesProject(task, projectFilter));
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [firstStep, setFirstStep] = useState("");
   const [due, setDue] = useState(localDateValue);
   const [recurrence, setRecurrence] = useState("One-time");
   const submit = (event: FormEvent) => {
@@ -1934,8 +2043,10 @@ function TasksView({
     setTasks((values) => [
       {
         id: crypto.randomUUID(),
+        projectId: taskProject || undefined,
         title: title.trim(),
         description: description.trim() || "No additional details.",
+        firstStep: firstStep.trim() || undefined,
         due,
         recurrence,
         priority: "Normal",
@@ -1946,6 +2057,7 @@ function TasksView({
     ]);
     setTitle("");
     setDescription("");
+    setFirstStep("");
     setDue(localDateValue());
     setRecurrence("One-time");
     setShowForm(false);
@@ -1954,8 +2066,8 @@ function TasksView({
     setTasks((values) =>
       completeTaskItems(values, task.id, { expectedDue: task.due }),
     );
-  const open = tasks.filter((task) => !task.done);
-  const completed = tasks
+  const open = filteredTasks.filter((task) => !task.done);
+  const completed = filteredTasks
     .filter((task) => task.done)
     .sort((a, b) =>
       (b.completedAt || b.createdAt || "").localeCompare(
@@ -1999,8 +2111,16 @@ function TasksView({
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Add a description (optional)"
             />
+            <input
+              value={firstStep}
+              maxLength={MAX_FIRST_STEP_LENGTH}
+              onChange={(event) => setFirstStep(event.target.value)}
+              aria-label="First step"
+              placeholder="First step you could do in two minutes"
+            />
           </div>
           <div className="task-fields">
+            <label>Project<select value={taskProject} onChange={(event) => setTaskProject(event.target.value)}><option value="">Unassigned</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
             <label>
               Due
               <input
@@ -2035,6 +2155,7 @@ function TasksView({
           </div>
         </form>
       )}
+      <label>Tasks project <select aria-label="Tasks project" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)}><option value="">All projects</option><option value="__unassigned">Unassigned</option>{[...new Map([...projects.map((project) => [project.id, project.name] as const), ...tasks.filter((task) => task.projectId && !projects.some((project) => project.id === task.projectId)).map((task) => [task.projectId!, `${task.projectId} (removed project)`] as const)]).entries()].map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
       <div className="task-summary reveal delay-1">
         <div>
           <b>{open.length}</b>
@@ -2047,7 +2168,7 @@ function TasksView({
         <div>
           <b>
             {
-              tasks.filter(
+              filteredTasks.filter(
                 (task) => task.recurrence !== "One-time" && !task.done,
               ).length
             }
@@ -2089,6 +2210,19 @@ function TasksView({
               <div className="task-copy">
                 <b>{task.title}</b>
                 <p>{task.description}</p>
+                {task.firstStep && (
+                  <p className="task-first-step">
+                    <span>Start with</span> {task.firstStep}
+                  </p>
+                )}
+                {isStuck(task) && (
+                  <small className="task-stuck">
+                    Put off {task.postponedCount} times. Decide on it from Today.
+                  </small>
+                )}
+                {task.projectId && <small>{projects.find((project) => project.id === task.projectId)?.name || task.projectId} · {task.priority}</small>}
+                {task.handoffId && <a href={`/?tab=updates#report-${encodeURIComponent(task.handoffProjectId || task.projectId || "")}-${encodeURIComponent(task.handoffId)}`}>Source handoff</a>}
+                <label>Project <select aria-label={`Project for ${task.title}`} value={task.projectId || ""} onChange={(event) => setTasks((values) => values.map((value) => value.id === task.id ? { ...value, projectId: event.target.value || undefined } : value))}><option value="">Unassigned</option>{task.projectId && !projects.some((project) => project.id === task.projectId) && <option value={task.projectId}>{task.projectId} (removed project)</option>}{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
               </div>
               <Label tone={isTaskDueToday(task.due) ? "high" : undefined}>
                 {formatTaskDue(task.due)}
@@ -2097,18 +2231,31 @@ function TasksView({
                 <RefreshCw size={13} />
                 {task.recurrence}
               </span>
-              <button
-                className="more-button"
-                aria-label={`Delete ${task.title}`}
-                title="Delete task"
-                onClick={() =>
-                  setTasks((values) =>
-                    values.filter((value) => value.id !== task.id),
-                  )
-                }
-              >
-                <Trash2 size={15} />
-              </button>
+              <span className="task-row-actions">
+                <button
+                  className="more-button"
+                  aria-label={`Not today: put off ${task.title}`}
+                  title={task.postponedOn === localDateValue() ? "Already put off today" : "Not today"}
+                  disabled={task.postponedOn === localDateValue()}
+                  onClick={() =>
+                    setTasks((values) => postponeTask(values, task.id, new Date()))
+                  }
+                >
+                  <Clock3 size={15} />
+                </button>
+                <button
+                  className="more-button"
+                  aria-label={`Delete ${task.title}`}
+                  title="Delete task"
+                  onClick={() =>
+                    setTasks((values) =>
+                      values.filter((value) => value.id !== task.id),
+                    )
+                  }
+                >
+                  <Trash2 size={15} />
+                </button>
+              </span>
             </div>
           ))}
         </div>
@@ -2264,6 +2411,7 @@ function SettingsView({
         requested &&
         [
           "general",
+          "projects",
           "industry",
           "mentions",
           "newsletters",
@@ -2347,6 +2495,16 @@ function SettingsView({
         ],
       },
     }));
+  const addProject = () =>
+    setDraft((value) => ({
+      ...value,
+      projectRouting: {
+        projects: [
+          ...value.projectRouting.projects,
+          { id: crypto.randomUUID(), name: "", keywords: [] },
+        ],
+      },
+    }));
   const addAccount = (platform: AudiencePlatform) =>
     setDraft((value) => ({
       ...value,
@@ -2407,6 +2565,7 @@ function SettingsView({
     icon: typeof Activity;
   }> = [
     { id: "general", label: "General", icon: Settings2 },
+    { id: "projects", label: "Projects", icon: Link2 },
     { id: "dailyBrief", label: "Daily brief", icon: LayoutDashboard },
     { id: "industry", label: "Industry", icon: Globe2 },
     { id: "mentions", label: "Mentions", icon: AtSign },
@@ -2521,6 +2680,103 @@ function SettingsView({
                   }
                   placeholder="Control Center"
                 />
+              </div>
+            </Panel>
+          )}
+          {section === "projects" && (
+            <Panel className="settings-panel">
+              <div className="settings-title">
+                <Link2 />
+                <div>
+                  <p className="eyebrow">Project routing</p>
+                  <h2>Connect discoveries to your work</h2>
+                  <p>
+                    Add project names and precise matching phrases. Story labels
+                    are assigned locally from visible evidence; no AI call is
+                    required.
+                  </p>
+                </div>
+              </div>
+              <div className="project-editor">
+                <div className="source-editor-head">
+                  <b>Projects</b>
+                  <button type="button" onClick={addProject}>
+                    <Plus size={15} /> Add project
+                  </button>
+                </div>
+                {!draft.projectRouting.projects.length ? (
+                  <div className="editor-empty">
+                    No project routes yet. Unmatched stories remain available
+                    without a project label.
+                  </div>
+                ) : (
+                  draft.projectRouting.projects.map((project) => (
+                    <div className="project-route-card" key={project.id}>
+                      <div className="project-route-head">
+                        <SettingsInput
+                          aria-label="Project name"
+                          value={project.name}
+                          onChange={(event) =>
+                            setDraft((value) => ({
+                              ...value,
+                              projectRouting: {
+                                projects: value.projectRouting.projects.map(
+                                  (item) =>
+                                    item.id === project.id
+                                      ? { ...item, name: event.target.value }
+                                      : item,
+                                ),
+                              },
+                            }))
+                          }
+                          placeholder="Project name"
+                        />
+                        <button
+                          type="button"
+                          aria-label={`Remove ${project.name || "project"}`}
+                          onClick={() =>
+                            setDraft((value) => ({
+                              ...value,
+                              projectRouting: {
+                                projects: value.projectRouting.projects.filter(
+                                  (item) => item.id !== project.id,
+                                ),
+                              },
+                            }))
+                          }
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                      <TagEditor
+                        label="Matching phrases"
+                        help="Use distinctive package names, repository slugs, product names, or architecture terms. The project name is matched automatically."
+                        values={project.keywords}
+                        onChange={(keywords) =>
+                          setDraft((value) => ({
+                            ...value,
+                            projectRouting: {
+                              projects: value.projectRouting.projects.map(
+                                (item) =>
+                                  item.id === project.id
+                                    ? { ...item, keywords }
+                                    : item,
+                              ),
+                            },
+                          }))
+                        }
+                        placeholder="e.g. openai-agents"
+                      />
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="settings-caveat">
+                <ShieldCheck size={17} />
+                <p>
+                  Matching uses whole words and phrases. A story can belong to
+                  more than one project, and unmatched stories are never hidden.
+                </p>
               </div>
             </Panel>
           )}
@@ -3385,6 +3641,16 @@ export function ControlCenter() {
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   const [workspaceSaveError, setWorkspaceSaveError] = useState("");
   const workspaceSaveQueue = useRef(Promise.resolve());
+  const workspaceSaveFailed = useRef(false);
+  const importProjectReport = async (report: ProjectHandoff, acceptedActions: HandoffAction[]) => {
+    await workspaceSaveQueue.current;
+    if (workspaceSaveFailed.current) throw new Error("Save your existing workspace before importing a report.");
+    const response = await fetch("/api/project-handoffs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ report, acceptedActions }) });
+    const result = await response.json() as { reports: SavedHandoff[]; workspace: WorkspaceState; added: number; error?: string };
+    if (!response.ok) throw new Error(result.error || "Could not save the report.");
+    setTasks(result.workspace.tasks);
+    return result;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -3502,10 +3768,12 @@ export function ControlCenter() {
         // A saved SQLite workspace does not depend on clearing the recovery copy.
       }
       setWorkspaceSaveError("");
+      workspaceSaveFailed.current = false;
     };
     workspaceSaveQueue.current = workspaceSaveQueue.current
       .then(save, save)
       .catch((error) => {
+        workspaceSaveFailed.current = true;
         setWorkspaceSaveError(
           error instanceof Error
             ? error.message
@@ -3713,6 +3981,7 @@ export function ControlCenter() {
           <TodayView
             settings={settings}
             tasks={tasks}
+            setTasks={setTasks}
             goTo={goTo}
             openSettings={openSettings}
             addBriefTask={addBriefTask}
@@ -3724,6 +3993,7 @@ export function ControlCenter() {
               addReminder(story.title, story.summary, story.url)
             }
             openSettings={() => openSettings("industry")}
+            projects={settings.projectRouting.projects}
           />
         )}{" "}
         {activeTab === "mentions" && (
@@ -3732,6 +4002,7 @@ export function ControlCenter() {
               addReminder(story.title, story.summary, story.url)
             }
             openSettings={() => openSettings("mentions")}
+            projects={settings.projectRouting.projects}
           />
         )}{" "}
         {activeTab === "reminders" && (
@@ -3765,8 +4036,9 @@ export function ControlCenter() {
           />
         )}{" "}
         {activeTab === "tasks" && (
-          <TasksView tasks={tasks} setTasks={setTasks} />
+          <TasksView tasks={tasks} setTasks={setTasks} projects={settings.projectRouting.projects} />
         )}{" "}
+        {activeTab === "updates" && <ProjectUpdates projects={settings.projectRouting.projects} onImport={importProjectReport} openSettings={() => openSettings("projects")} />}
         {activeTab === "settings" && (
           <SettingsView
             settings={settings}
