@@ -15,7 +15,7 @@ If `CLAUDE_CODE_HANDOFF.md` exists locally, read it after this file. It records 
 
 On 2026-10-16 the branch was pushed with the gstack routing rules, the project-handoff Updates tab, the focus panel, and this refresh of the handoff. Run `git log --oneline origin/codex/project-routing..HEAD` to confirm nothing is unpushed. Draft pull request #1 remains in draft; its description predates the last four commits, so verify it before relying on it.
 
-Do not push, merge, publish, or change the draft status without a direct user request. The local GitHub CLI authenticates with a fine-grained token that has pull-request and contents write access to the fork.
+Do not push, merge, publish, or change the draft status without a direct user request. `git push` works through the Windows credential manager. The GitHub CLI's saved token was reported invalid on 2026-10-16, so `gh` commands such as editing the pull request need `gh auth login` first.
 
 ## Product in one paragraph
 
