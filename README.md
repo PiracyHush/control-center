@@ -43,6 +43,8 @@ Collectors run shortly after startup, every 15 minutes while the app remains ope
 
 ## Project routing
 
+The **Updates** tab imports structured agent handoffs, keeps a project history, and lets you choose proposed actions to add to Tasks. Updates and Tasks have separate project filters. Download a project-specific JSON template from Updates and give it to your coding agent. See [Project handoffs and tasks](docs/PROJECT_HANDOFFS.md).
+
 **Settings → Projects** can label Industry and Mention cards with the work they affect. Each project has a name and optional matching phrases such as a repository slug, package name, product name, or distinctive architecture term. Matching is deterministic, local, case-insensitive, and based on whole words or phrases from the visible story evidence. A story can match multiple projects, and unmatched stories remain visible. Industry and Mentions each provide an **All projects** filter so you can focus either queue on one configured project without changing the saved stories.
 
 Project routing does not change collection, importance ranking, identity verification, archive state, or AI prompts. It is an organizational layer only, so adding a project cannot admit an otherwise rejected story or hide a discovery.

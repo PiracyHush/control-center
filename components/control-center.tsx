@@ -85,6 +85,9 @@ import {
   storyMatchesProject,
 } from "@/lib/project-routing";
 import { completeTaskItems } from "@/lib/tasks";
+import { ProjectUpdates } from "@/components/project-updates";
+import { taskMatchesProject } from "@/lib/project-handoffs";
+import type { ProjectHandoff, HandoffAction, SavedHandoff } from "@/lib/project-handoffs";
 import {
   applyArchiveToPayload,
   type CachedFeedPayload,
@@ -98,6 +101,7 @@ type Tab =
   | "audience"
   | "newsletters"
   | "tasks"
+  | "updates"
   | "settings";
 type SettingsSection =
   | "general"
@@ -156,6 +160,7 @@ const nav: { id: Tab; label: string; icon: typeof Activity }[] = [
   { id: "audience", label: "Audience", icon: Users },
   { id: "newsletters", label: "Newsletters", icon: Newspaper },
   { id: "tasks", label: "Tasks", icon: ListTodo },
+  { id: "updates", label: "Updates", icon: Activity },
 ];
 
 function classNames(...values: Array<string | false | null | undefined>) {
@@ -2007,10 +2012,15 @@ function NewslettersView({
 function TasksView({
   tasks,
   setTasks,
+  projects,
 }: {
   tasks: Task[];
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  projects: ProjectRoute[];
 }) {
+  const [projectFilter, setProjectFilter] = useState("");
+  const [taskProject, setTaskProject] = useState("");
+  const filteredTasks = tasks.filter((task) => taskMatchesProject(task, projectFilter));
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -2022,6 +2032,7 @@ function TasksView({
     setTasks((values) => [
       {
         id: crypto.randomUUID(),
+        projectId: taskProject || undefined,
         title: title.trim(),
         description: description.trim() || "No additional details.",
         due,
@@ -2042,8 +2053,8 @@ function TasksView({
     setTasks((values) =>
       completeTaskItems(values, task.id, { expectedDue: task.due }),
     );
-  const open = tasks.filter((task) => !task.done);
-  const completed = tasks
+  const open = filteredTasks.filter((task) => !task.done);
+  const completed = filteredTasks
     .filter((task) => task.done)
     .sort((a, b) =>
       (b.completedAt || b.createdAt || "").localeCompare(
@@ -2089,6 +2100,7 @@ function TasksView({
             />
           </div>
           <div className="task-fields">
+            <label>Project<select value={taskProject} onChange={(event) => setTaskProject(event.target.value)}><option value="">Unassigned</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
             <label>
               Due
               <input
@@ -2123,6 +2135,7 @@ function TasksView({
           </div>
         </form>
       )}
+      <label>Tasks project <select aria-label="Tasks project" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)}><option value="">All projects</option><option value="__unassigned">Unassigned</option>{[...new Map([...projects.map((project) => [project.id, project.name] as const), ...tasks.filter((task) => task.projectId && !projects.some((project) => project.id === task.projectId)).map((task) => [task.projectId!, `${task.projectId} (removed project)`] as const)]).entries()].map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
       <div className="task-summary reveal delay-1">
         <div>
           <b>{open.length}</b>
@@ -2135,7 +2148,7 @@ function TasksView({
         <div>
           <b>
             {
-              tasks.filter(
+              filteredTasks.filter(
                 (task) => task.recurrence !== "One-time" && !task.done,
               ).length
             }
@@ -2177,6 +2190,9 @@ function TasksView({
               <div className="task-copy">
                 <b>{task.title}</b>
                 <p>{task.description}</p>
+                {task.projectId && <small>{projects.find((project) => project.id === task.projectId)?.name || task.projectId} · {task.priority}</small>}
+                {task.handoffId && <a href={`/?tab=updates#report-${encodeURIComponent(task.handoffProjectId || task.projectId || "")}-${encodeURIComponent(task.handoffId)}`}>Source handoff</a>}
+                <label>Project <select aria-label={`Project for ${task.title}`} value={task.projectId || ""} onChange={(event) => setTasks((values) => values.map((value) => value.id === task.id ? { ...value, projectId: event.target.value || undefined } : value))}><option value="">Unassigned</option>{task.projectId && !projects.some((project) => project.id === task.projectId) && <option value={task.projectId}>{task.projectId} (removed project)</option>}{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
               </div>
               <Label tone={isTaskDueToday(task.due) ? "high" : undefined}>
                 {formatTaskDue(task.due)}
@@ -3582,6 +3598,16 @@ export function ControlCenter() {
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   const [workspaceSaveError, setWorkspaceSaveError] = useState("");
   const workspaceSaveQueue = useRef(Promise.resolve());
+  const workspaceSaveFailed = useRef(false);
+  const importProjectReport = async (report: ProjectHandoff, acceptedActions: HandoffAction[]) => {
+    await workspaceSaveQueue.current;
+    if (workspaceSaveFailed.current) throw new Error("Save your existing workspace before importing a report.");
+    const response = await fetch("/api/project-handoffs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ report, acceptedActions }) });
+    const result = await response.json() as { reports: SavedHandoff[]; workspace: WorkspaceState; added: number; error?: string };
+    if (!response.ok) throw new Error(result.error || "Could not save the report.");
+    setTasks(result.workspace.tasks);
+    return result;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -3699,10 +3725,12 @@ export function ControlCenter() {
         // A saved SQLite workspace does not depend on clearing the recovery copy.
       }
       setWorkspaceSaveError("");
+      workspaceSaveFailed.current = false;
     };
     workspaceSaveQueue.current = workspaceSaveQueue.current
       .then(save, save)
       .catch((error) => {
+        workspaceSaveFailed.current = true;
         setWorkspaceSaveError(
           error instanceof Error
             ? error.message
@@ -3964,8 +3992,9 @@ export function ControlCenter() {
           />
         )}{" "}
         {activeTab === "tasks" && (
-          <TasksView tasks={tasks} setTasks={setTasks} />
+          <TasksView tasks={tasks} setTasks={setTasks} projects={settings.projectRouting.projects} />
         )}{" "}
+        {activeTab === "updates" && <ProjectUpdates projects={settings.projectRouting.projects} onImport={importProjectReport} openSettings={() => openSettings("projects")} />}
         {activeTab === "settings" && (
           <SettingsView
             settings={settings}

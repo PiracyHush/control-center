@@ -169,6 +169,10 @@ export function cleanTaskItems(value: unknown): TaskItem[] {
     const recurrence = cleanText(candidate.recurrence, "One-time");
     return [{
       id: cleanId(candidate.id),
+      projectId: cleanText(candidate.projectId) || undefined,
+      handoffId: cleanText(candidate.handoffId) || undefined,
+      handoffProjectId: cleanText(candidate.handoffProjectId) || undefined,
+      actionId: cleanText(candidate.actionId) || undefined,
       title,
       description: cleanText(
         candidate.description,

@@ -271,6 +271,10 @@ export type ReminderItem = {
 };
 
 export type TaskItem = {
+  projectId?: string;
+  handoffId?: string;
+  handoffProjectId?: string;
+  actionId?: string;
   id: string | number;
   title: string;
   description: string;
