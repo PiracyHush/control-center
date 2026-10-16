@@ -85,6 +85,8 @@ import {
   storyMatchesProject,
 } from "@/lib/project-routing";
 import { completeTaskItems } from "@/lib/tasks";
+import { MAX_FIRST_STEP_LENGTH, isStuck, postponeTask } from "@/lib/focus";
+import { FocusPanel } from "@/components/focus-panel";
 import { ProjectUpdates } from "@/components/project-updates";
 import { taskMatchesProject } from "@/lib/project-handoffs";
 import type { ProjectHandoff, HandoffAction, SavedHandoff } from "@/lib/project-handoffs";
@@ -659,12 +661,14 @@ function newsletterSetupReady(settings: PublicSettings) {
 function TodayView({
   settings,
   tasks,
+  setTasks,
   goTo,
   openSettings,
   addBriefTask,
 }: {
   settings: PublicSettings;
   tasks: Task[];
+  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   goTo: (tab: Tab) => void;
   openSettings: (section?: SettingsSection) => void;
   addBriefTask: (item: DailyBriefItem) => void;
@@ -687,7 +691,7 @@ function TodayView({
     <div className="view">
       <PageHeading
         eyebrow={today}
-        title="Good morning."
+        title={`Good ${new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"}.`}
         description="A quiet starting point for the sources, signals, and work you choose to track."
         action={
           <button
@@ -697,6 +701,12 @@ function TodayView({
             <Settings2 size={15} /> Settings
           </button>
         }
+      />
+      <FocusPanel
+        tasks={tasks}
+        setTasks={setTasks}
+        projects={settings.projectRouting.projects}
+        openTasks={() => goTo("tasks")}
       />
       <div className="brief-banner reveal delay-1">
         <div className="brief-mark">
@@ -2024,6 +2034,7 @@ function TasksView({
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [firstStep, setFirstStep] = useState("");
   const [due, setDue] = useState(localDateValue);
   const [recurrence, setRecurrence] = useState("One-time");
   const submit = (event: FormEvent) => {
@@ -2035,6 +2046,7 @@ function TasksView({
         projectId: taskProject || undefined,
         title: title.trim(),
         description: description.trim() || "No additional details.",
+        firstStep: firstStep.trim() || undefined,
         due,
         recurrence,
         priority: "Normal",
@@ -2045,6 +2057,7 @@ function TasksView({
     ]);
     setTitle("");
     setDescription("");
+    setFirstStep("");
     setDue(localDateValue());
     setRecurrence("One-time");
     setShowForm(false);
@@ -2097,6 +2110,13 @@ function TasksView({
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Add a description (optional)"
+            />
+            <input
+              value={firstStep}
+              maxLength={MAX_FIRST_STEP_LENGTH}
+              onChange={(event) => setFirstStep(event.target.value)}
+              aria-label="First step"
+              placeholder="First step you could do in two minutes"
             />
           </div>
           <div className="task-fields">
@@ -2190,6 +2210,16 @@ function TasksView({
               <div className="task-copy">
                 <b>{task.title}</b>
                 <p>{task.description}</p>
+                {task.firstStep && (
+                  <p className="task-first-step">
+                    <span>Start with</span> {task.firstStep}
+                  </p>
+                )}
+                {isStuck(task) && (
+                  <small className="task-stuck">
+                    Put off {task.postponedCount} times. Decide on it from Today.
+                  </small>
+                )}
                 {task.projectId && <small>{projects.find((project) => project.id === task.projectId)?.name || task.projectId} · {task.priority}</small>}
                 {task.handoffId && <a href={`/?tab=updates#report-${encodeURIComponent(task.handoffProjectId || task.projectId || "")}-${encodeURIComponent(task.handoffId)}`}>Source handoff</a>}
                 <label>Project <select aria-label={`Project for ${task.title}`} value={task.projectId || ""} onChange={(event) => setTasks((values) => values.map((value) => value.id === task.id ? { ...value, projectId: event.target.value || undefined } : value))}><option value="">Unassigned</option>{task.projectId && !projects.some((project) => project.id === task.projectId) && <option value={task.projectId}>{task.projectId} (removed project)</option>}{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
@@ -2201,18 +2231,31 @@ function TasksView({
                 <RefreshCw size={13} />
                 {task.recurrence}
               </span>
-              <button
-                className="more-button"
-                aria-label={`Delete ${task.title}`}
-                title="Delete task"
-                onClick={() =>
-                  setTasks((values) =>
-                    values.filter((value) => value.id !== task.id),
-                  )
-                }
-              >
-                <Trash2 size={15} />
-              </button>
+              <span className="task-row-actions">
+                <button
+                  className="more-button"
+                  aria-label={`Not today: put off ${task.title}`}
+                  title={task.postponedOn === localDateValue() ? "Already put off today" : "Not today"}
+                  disabled={task.postponedOn === localDateValue()}
+                  onClick={() =>
+                    setTasks((values) => postponeTask(values, task.id, new Date()))
+                  }
+                >
+                  <Clock3 size={15} />
+                </button>
+                <button
+                  className="more-button"
+                  aria-label={`Delete ${task.title}`}
+                  title="Delete task"
+                  onClick={() =>
+                    setTasks((values) =>
+                      values.filter((value) => value.id !== task.id),
+                    )
+                  }
+                >
+                  <Trash2 size={15} />
+                </button>
+              </span>
             </div>
           ))}
         </div>
@@ -3938,6 +3981,7 @@ export function ControlCenter() {
           <TodayView
             settings={settings}
             tasks={tasks}
+            setTasks={setTasks}
             goTo={goTo}
             openSettings={openSettings}
             addBriefTask={addBriefTask}

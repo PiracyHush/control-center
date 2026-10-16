@@ -55,6 +55,20 @@ The daily brief is a quick snapshot of the saved reading queues, not a separate 
 
 Private actions, meetings, and messages are a separate optional section below the snapshot. They require the connector bridge described below; the three-tab snapshot does not.
 
+## Focus
+
+The top of Today is about doing, not reading. It uses only local data and makes no AI or network calls; task text is never sent to a provider.
+
+- **Do this next** shows one open task. A task chosen in the previous day's shutdown note comes first, then anything due, then the configured project that has gone longest without activity, then tasks that already have a first step.
+- **First step** is an optional line on every task: something you could do in about two minutes. Add it when creating a task or from the card, which also offers up to three one-click suggestions chosen locally from the verb the task title starts with.
+- **Not today** moves a task to tomorrow and does not offer it again that day. After three postponements a task is stuck: it stops being offered and Today asks you to break it down, schedule it, or delete it.
+- **Shipping streak** counts days on which a task was completed or a project agent filed a report under Updates. Opening the dashboard or reading stories does not count. A day in progress does not break the streak.
+- **Project activity** shows how long each configured project has been idle and how many tasks it has open.
+- **Shut down for the day** closes the day in one click. It records what was completed, reported by project agents, and put off today, picks tomorrow's task the way tomorrow's card would, pins it, and shows a Today and Tomorrow catch-up in place of the button. Nothing is invented: an empty day is recorded as empty. **Edit note** lets you rewrite the summary or choose a different task for tomorrow.
+- **Weekly review** summarizes the last seven days: shipped days, tasks completed and agent reports by project, projects with no activity, and stuck tasks.
+
+Shutdown notes are stored in the local SQLite database and are included in `npm run backup`.
+
 ## Industry collection
 
 Each configured URL is treated independently and can belong to any niche.

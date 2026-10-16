@@ -1,3 +1,4 @@
+import { MAX_FIRST_STEP_LENGTH, isLocalDay } from "./focus";
 import type { TaskItem } from "./types";
 
 const RECURRENCES = new Set(["One-time", "Daily", "Weekly", "Monthly"]);
@@ -115,6 +116,9 @@ export function completeTaskItems(
           done: false,
           completedAt: undefined,
           recurrenceAnchorDay,
+          pinnedFor: undefined,
+          postponedOn: undefined,
+          postponedCount: undefined,
         }
       : candidate,
   );
@@ -196,6 +200,17 @@ export function cleanTaskItems(value: unknown): TaskItem[] {
         candidate.recurrenceAnchorDay <= 31
           ? candidate.recurrenceAnchorDay
           : undefined,
+      firstStep:
+        cleanText(candidate.firstStep).trim().slice(0, MAX_FIRST_STEP_LENGTH) ||
+        undefined,
+      postponedCount:
+        typeof candidate.postponedCount === "number" &&
+        Number.isInteger(candidate.postponedCount) &&
+        candidate.postponedCount > 0
+          ? Math.min(candidate.postponedCount, 99)
+          : undefined,
+      postponedOn: isLocalDay(candidate.postponedOn) ? candidate.postponedOn : undefined,
+      pinnedFor: isLocalDay(candidate.pinnedFor) ? candidate.pinnedFor : undefined,
     }];
   });
 }
