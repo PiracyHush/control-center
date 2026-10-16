@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, open, readFile, readdir, rm, stat } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import {
   loadLocalEnvironment,
@@ -153,7 +154,11 @@ try {
   let stale = true;
   try {
     const lock = JSON.parse(await readFile(lockPath, "utf8"));
-    if (Number.isInteger(lock.pid)) {
+    // A lock written before this boot is left over from a shutdown or sign-out
+    // that skipped cleanup; its PID may since have been reused by another process.
+    const bootedAt = Date.now() - os.uptime() * 1000;
+    const writtenThisBoot = Date.parse(lock.startedAt) > bootedAt;
+    if (Number.isInteger(lock.pid) && writtenThisBoot) {
       process.kill(lock.pid, 0);
       stale = false;
     }
