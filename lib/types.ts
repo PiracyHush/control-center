@@ -294,6 +294,8 @@ export type TaskItem = {
   postponedOn?: string;
   /** Local day (YYYY-MM-DD) the task was chosen for by a shutdown note. */
   pinnedFor?: string;
+  /** The idea this task was promoted from, if any. */
+  ideaId?: string;
 };
 
 export type WorkspaceState = {

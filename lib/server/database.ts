@@ -18,6 +18,7 @@ import { initializeCollectorCache } from "@/lib/collector-cache";
 import { initializeNewsletterStore } from "@/lib/newsletter-store";
 import { initializeHandoffStore } from "@/lib/project-handoff-store";
 import { initializeFocusStore } from "@/lib/focus-store";
+import { initializeIdeaStore } from "@/lib/idea-store";
 
 export { setContentArchived } from "@/lib/archive-store";
 export type { ContentCategory } from "@/lib/archive-store";
@@ -72,7 +73,7 @@ export function getDatabase() {
   }
   // Development hot reload can retain a connection opened before handoffs existed.
   // Additive, idempotent initialization must also run for that retained connection.
-  return initializeFocusStore(initializeHandoffStore(globalThis.controlCenterDatabase));
+  return initializeIdeaStore(initializeFocusStore(initializeHandoffStore(globalThis.controlCenterDatabase)));
 }
 
 export function syncContentItems<

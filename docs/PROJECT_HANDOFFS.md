@@ -59,3 +59,36 @@ Schema example:
 ```
 
 Status accepts working, blocked, or awaiting-review. Priority accepts Low, Normal, or High. Optional due dates use YYYY-MM-DD. Each report accepts at most 100 actions and each text list accepts at most 100 entries. The import file must be smaller than 500 KB.
+
+## Ideas in handoffs
+
+A report may include two optional lists. Reports without them are unchanged.
+
+```json
+{
+  "ideas": [
+    { "id": "price-sparkline", "title": "Price-history sparkline on listing cards", "note": "Came up while fixing ranking." }
+  ],
+  "ideaNotes": [
+    { "ideaId": "idea_3f6c1a2e-0b7d-4c55-9a1e-2d8f0c4b7a91", "body": "The handoff schema already has completed[] and evidence[]." }
+  ]
+}
+```
+
+- `ideas` (at most 50): side ideas from this session. `id` is the agent's own stable id; the same id from the same project never creates a second idea, even after you dismiss it. New ideas wait for Keep in the Ideas tab.
+- `ideaNotes` (at most 50): notes for ideas that already exist, addressed by the **dashboard** id (`idea_<uuid>`), never the agent's own id. Notes attach only to growing or parked ideas; others are ignored and counted in the import result.
+- Ideas and notes are applied once, when a report is first stored. Re-importing the same report changes nothing.
+
+To see which ideas can take notes, run the shared exporter (the absolute `exporter` path in the repository's `.agent-handoff/config.json`) with `--list-ideas` while the dashboard is running. The per-repo wrapper does not pass this option through, so call the shared script directly:
+
+```bash
+node C:/Users/PiracyH/Downloads/control-center/scripts/export-handoff.mjs --list-ideas
+```
+
+It prints `id`, status and title for each growing or parked idea, reading the dashboard over `http://127.0.0.1:3000` (use `--url=http://127.0.0.1:<port>` for another port). It never opens the dashboard's database. If the dashboard is not running it says so, and the agent can still propose new ideas.
+
+### Paragraph for a project repository's AGENTS.md
+
+Add this to each project repository's agent instructions (done by you in that repository, not by the dashboard):
+
+> At the start of a session, run `node <exporter path from .agent-handoff/config.json> --list-ideas` to see current ideas. While working, note any side idea that is not part of the current task. In the end-of-session handoff, put new side ideas in `ideas` (stable `id`, short `title`, optional `note`) and anything you learned about a listed idea in `ideaNotes` using its `idea_<uuid>` id. Do not invent ideas to fill the list; an empty list is fine.

@@ -33,7 +33,9 @@ export async function exportHandoff(repository, inputFile) {
   const section = (title, items) => `## ${title}\n\n${items.length ? items.map((item) => `- ${item}`).join("\n") : "None reported."}\n\n`;
   const markdown = `# Agent handoff\n\nReport: ${report.id}\nProject: ${report.projectId}\nRepository: ${root}\nCommit: ${commit || "No commit yet"}\nReported: ${report.generatedAt}\nStatus: ${report.status}\n\n${report.summary}\n\n`
     + section("Completed", report.completed) + section("Verification evidence", report.evidence) + section("Decisions needed", report.decisions)
-    + section("Proposed actions (not accepted tasks)", report.actions.map((action) => `${action.id}: ${action.title} (${action.priority}${action.due ? `; due ${action.due}` : ""})${action.description ? `: ${action.description}` : ""}`));
+    + section("Proposed actions (not accepted tasks)", report.actions.map((action) => `${action.id}: ${action.title} (${action.priority}${action.due ? `; due ${action.due}` : ""})${action.description ? `: ${action.description}` : ""}`))
+    + (report.ideas?.length ? section("Side ideas (waiting for Keep in the Ideas tab)", report.ideas.map((idea) => `${idea.id}: ${idea.title}${idea.note ? `: ${idea.note}` : ""}`)) : "")
+    + (report.ideaNotes?.length ? section("Notes on existing ideas", report.ideaNotes.map((note) => `${note.ideaId}: ${note.body}`)) : "");
   const archive = path.join(folder, "reports");
   await ensureDirectory(archive);
   await writeFile(path.join(archive, `${report.id}.md`), markdown, { flag: "wx", mode: 0o600 });
@@ -43,8 +45,34 @@ export async function exportHandoff(repository, inputFile) {
   await publish(path.join(folder, "latest.json"), json);
   return { id: report.id, json: path.join(folder, "latest.json"), markdown: path.join(folder, "latest.md") };
 }
+/**
+ * Lists the dashboard's growing and parked ideas so an agent can add notes to
+ * them in its handoff (`ideaNotes[].ideaId`). Reads the local dashboard over
+ * loopback; never opens its database. Failure is reported, not fatal.
+ */
+export async function listIdeas(baseUrl = "http://127.0.0.1:3000") {
+  const url = new URL("/api/ideas?status=growing,parked", baseUrl);
+  if (!["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)) throw new Error("--url must point at this computer (127.0.0.1).");
+  try {
+    const response = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(3000), headers: { accept: "application/json" } });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    return { ok: true, ideas: Array.isArray(data.ideas) ? data.ideas : [] };
+  } catch {
+    return { ok: false, ideas: [] };
+  }
+}
 async function main() {
   const option = (name) => process.argv.find((value) => value.startsWith(`--${name}=`))?.slice(name.length + 3);
+  if (process.argv.includes("--list-ideas")) {
+    try {
+      const result = await listIdeas(option("url"));
+      if (!result.ok) console.log("Dashboard not reachable: idea list unavailable. You can still propose new ideas in the handoff.");
+      else if (!result.ideas.length) console.log("No growing or parked ideas yet. Propose new ones in the handoff's ideas list.");
+      else for (const idea of result.ideas) console.log(`${idea.id}	${idea.status}	${String(idea.title).replace(/[\u0000-\u001f\u007f-\u009f]/g, " ")}`);
+    } catch (error) { console.error(`Listing ideas failed: ${error.message}`); process.exitCode = 1; }
+    return;
+  }
   try {
     const input = option("input");
     if (!input) throw new Error("Use --input=.agent-handoff/session.json and optionally --repo=/absolute/repository.");

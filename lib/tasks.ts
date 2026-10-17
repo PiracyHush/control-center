@@ -211,6 +211,10 @@ export function cleanTaskItems(value: unknown): TaskItem[] {
           : undefined,
       postponedOn: isLocalDay(candidate.postponedOn) ? candidate.postponedOn : undefined,
       pinnedFor: isLocalDay(candidate.pinnedFor) ? candidate.pinnedFor : undefined,
+      ideaId:
+        typeof candidate.ideaId === "string" && /^idea_[0-9a-f-]{36}$/.test(candidate.ideaId)
+          ? candidate.ideaId
+          : undefined,
     }];
   });
 }

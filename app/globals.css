@@ -351,6 +351,9 @@ footer { width: min(1380px, calc(100vw - 48px)); min-height: 58px; display: flex
 .recovery-panel > p:not(.eyebrow) { color: var(--muted); line-height: 1.6; }
 .recovery-panel code { padding: 2px 5px; border-radius: 4px; background: var(--paper-deep); }
 .workspace-save-error { width: min(1380px, calc(100vw - 48px)); display: flex; align-items: center; gap: 9px; margin: 18px auto -32px; padding: 12px 14px; border: 1px solid var(--warning-border); border-radius: 8px; color: var(--warning); background: var(--warning-bg); font-size: 10px; }
+.update-banner { width: min(1380px, calc(100vw - 48px)); display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 18px auto -32px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--card); font-size: 12px; }
+.update-banner > span { flex: 1 1 220px; }
+.update-banner > svg { color: var(--coral); flex: none; }
 .error-state > svg { color: var(--coral); }
 .spin { animation: spin .9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

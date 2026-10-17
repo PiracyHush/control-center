@@ -3,6 +3,7 @@
 
 # next.js
 /.next/
+/.next-previous/
 /out/
 
 # local configuration
@@ -19,3 +20,6 @@
 .gstack/
 /graphify-out/
 /.ua/
+
+# launcher output from the Windows sign-in task
+/logs/

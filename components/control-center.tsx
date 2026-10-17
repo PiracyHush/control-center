@@ -25,6 +25,7 @@ import {
   Instagram,
   KeyRound,
   LayoutDashboard,
+  Lightbulb,
   Link2,
   Linkedin,
   ListTodo,
@@ -88,6 +89,8 @@ import { completeTaskItems } from "@/lib/tasks";
 import { MAX_FIRST_STEP_LENGTH, isStuck, postponeTask } from "@/lib/focus";
 import { FocusPanel } from "@/components/focus-panel";
 import { ProjectUpdates } from "@/components/project-updates";
+import { IdeasView } from "@/components/ideas-view";
+import { UpdateBanner } from "@/components/update-banner";
 import { taskMatchesProject } from "@/lib/project-handoffs";
 import type { ProjectHandoff, HandoffAction, SavedHandoff } from "@/lib/project-handoffs";
 import {
@@ -103,6 +106,7 @@ type Tab =
   | "audience"
   | "newsletters"
   | "tasks"
+  | "ideas"
   | "updates"
   | "settings";
 type SettingsSection =
@@ -162,6 +166,7 @@ const nav: { id: Tab; label: string; icon: typeof Activity }[] = [
   { id: "audience", label: "Audience", icon: Users },
   { id: "newsletters", label: "Newsletters", icon: Newspaper },
   { id: "tasks", label: "Tasks", icon: ListTodo },
+  { id: "ideas", label: "Ideas", icon: Lightbulb },
   { id: "updates", label: "Updates", icon: Activity },
 ];
 
@@ -3646,10 +3651,19 @@ export function ControlCenter() {
     await workspaceSaveQueue.current;
     if (workspaceSaveFailed.current) throw new Error("Save your existing workspace before importing a report.");
     const response = await fetch("/api/project-handoffs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ report, acceptedActions }) });
-    const result = await response.json() as { reports: SavedHandoff[]; workspace: WorkspaceState; added: number; error?: string };
+    const result = await response.json() as { reports: SavedHandoff[]; workspace: WorkspaceState; added: number; ideas?: { ideasProposed: number; ideasSkipped: number; notesAdded: number; notesIgnored: number }; error?: string };
     if (!response.ok) throw new Error(result.error || "Could not save the report.");
     setTasks(result.workspace.tasks);
     return result;
+  };
+
+  const promoteIdea = async (ideaId: string, input: { title?: string; firstStep?: string }) => {
+    await workspaceSaveQueue.current;
+    if (workspaceSaveFailed.current) throw new Error("Save your existing workspace before promoting an idea.");
+    const response = await fetch("/api/ideas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "promote", ideaId, title: input.title, firstStep: input.firstStep }) });
+    const result = await response.json() as { tasks: TaskItem[]; error?: string };
+    if (!response.ok) throw new Error(result.error || "Could not promote the idea.");
+    setTasks(result.tasks);
   };
 
   useEffect(() => {
@@ -3971,6 +3985,12 @@ export function ControlCenter() {
         </div>
       </header>
       <main key={activeTab}>
+        <UpdateBanner
+          beforeRestart={async () => {
+            await workspaceSaveQueue.current;
+            if (workspaceSaveFailed.current) throw new Error("Your latest changes are not saved yet. Fix the save problem shown below, then restart.");
+          }}
+        />
         {workspaceSaveError && (
           <div className="workspace-save-error" role="alert">
             <CircleAlert size={16} />
@@ -4038,6 +4058,7 @@ export function ControlCenter() {
         {activeTab === "tasks" && (
           <TasksView tasks={tasks} setTasks={setTasks} projects={settings.projectRouting.projects} />
         )}{" "}
+        {activeTab === "ideas" && <IdeasView projects={settings.projectRouting.projects} onPromote={promoteIdea} />}{" "}
         {activeTab === "updates" && <ProjectUpdates projects={settings.projectRouting.projects} onImport={importProjectReport} openSettings={() => openSettings("projects")} />}
         {activeTab === "settings" && (
           <SettingsView

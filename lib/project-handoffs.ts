@@ -2,12 +2,17 @@ export type HandoffAction = {
   id: string; title: string; description: string;
   priority: "Normal" | "High" | "Low"; due?: string;
 };
+/** A side idea an agent proposes; it waits in the Ideas tab for Keep or Dismiss. */
+export type HandoffIdea = { id: string; title: string; note?: string };
+/** A note for an existing idea, addressed by its dashboard id (idea_<uuid>). */
+export type HandoffIdeaNote = { ideaId: string; body: string };
 export type ProjectHandoff = {
   schemaVersion: 1; id: string; projectId: string; generatedAt: string;
   repository: string; commit: string; summary: string;
   status: "working" | "blocked" | "awaiting-review";
   completed: string[]; evidence: string[]; decisions: string[];
   actions: HandoffAction[];
+  ideas?: HandoffIdea[]; ideaNotes?: HandoffIdeaNote[];
 };
 export type SavedHandoff = ProjectHandoff & { importedAt: string };
 
@@ -56,6 +61,8 @@ export function parseHandoff(value: unknown): ProjectHandoff {
       throw new Error("Action due must be a valid YYYY-MM-DD date.");
     return { id, title: text(item.title, "Action title", 300), description: text(item.description, "Action description", 2000, true), priority: priority as HandoffAction["priority"], due };
   });
+  const ideas = parseHandoffIdeas(input.ideas);
+  const ideaNotes = parseHandoffIdeaNotes(input.ideaNotes);
   return {
     schemaVersion: 1, id: identifier(input.id, "Report id"),
     projectId: text(input.projectId, "Project id", 100), generatedAt: new Date(generatedAt).toISOString(),
@@ -63,7 +70,35 @@ export function parseHandoff(value: unknown): ProjectHandoff {
     summary: text(input.summary, "Summary", 5000), status: input.status as ProjectHandoff["status"],
     completed: list(input.completed, "Completed work"), evidence: list(input.evidence, "Evidence"),
     decisions: list(input.decisions, "Decisions"), actions,
+    // Optional and omitted when absent, so reports without ideas keep their exact stored shape.
+    ...(ideas ? { ideas } : {}), ...(ideaNotes ? { ideaNotes } : {}),
   };
+}
+
+function parseHandoffIdeas(value: unknown): HandoffIdea[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > 50) throw new Error("ideas must be a list of at most 50 entries.");
+  const seen = new Set<string>();
+  return value.map((raw) => {
+    const item = record(raw);
+    const id = identifier(item.id, "Idea id");
+    if (seen.has(id)) throw new Error("Idea IDs must be unique within a report.");
+    seen.add(id);
+    const note = text(item.note, "Idea note", 2000, true);
+    return { id, title: text(item.title, "Idea title", 200), ...(note ? { note } : {}) };
+  });
+}
+
+function parseHandoffIdeaNotes(value: unknown): HandoffIdeaNote[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > 50) throw new Error("ideaNotes must be a list of at most 50 entries.");
+  return value.map((raw) => {
+    const item = record(raw);
+    const ideaId = text(item.ideaId, "Idea note ideaId", 60);
+    if (!/^idea_[0-9a-f-]{36}$/.test(ideaId))
+      throw new Error("Idea note ideaId must be a dashboard idea id such as idea_<uuid>; list them with --list-ideas.");
+    return { ideaId, body: text(item.body, "Idea note body", 2000) };
+  });
 }
 
 export function taskMatchesProject(task: { projectId?: string }, selected: string) {

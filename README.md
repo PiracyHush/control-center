@@ -18,6 +18,22 @@ npm run launch
 
 Prefer a ZIP? Download **Code → Download ZIP** on GitHub, extract it, open a terminal in the extracted folder, and run `npm run launch`. Git is only required for the clone/update workflow.
 
+### Open it like an app (optional)
+
+**Install it:** with the dashboard open in Chrome or Edge, choose **Install Control Center** from the address bar or the browser menu. It gets its own window, a taskbar and Start menu icon, and jump-list shortcuts to Today, Tasks, and Updates. It is still the same local server; nothing is uploaded.
+
+**Start it at sign-in (Windows):**
+
+```bash
+npm run autostart:install   # start 30 seconds after you sign in, in the background
+npm run autostart:status    # is the task registered, and is the dashboard running?
+npm run autostart:remove    # stop starting it at sign-in
+```
+
+This registers a per-user scheduled task named **Control Center** that runs the launcher hidden, without administrator rights. It runs Node directly rather than npm, and the launcher exits once the dashboard answers, so only the server stays in memory. Output goes to `logs/launch.log`. To start it right away without signing out, run `Start-ScheduledTask -TaskName "Control Center"` in PowerShell. Collectors keep refreshing every 15 minutes while it runs, so expect it to use some memory in the background. If you changed the source code since the last build, the first start after sign-in rebuilds the app first and takes a minute or two. If you move the project folder, run `npm run autostart:install` again from the new location.
+
+You never need to reinstall the app to get new code: it is a window onto the local server. When the code on disk is newer than what is running, the dashboard shows **Restart now** at the top of the page. It waits for pending saves, restarts (rebuilding first if the source changed), and reloads the page. `npm run restart` does the same from a terminal. If the new code does not build, the previous version is put back and started, and the build errors are in `logs/launch.log`. A dashboard started in a terminal with `npm run launch` comes back hidden in the background after a restart.
+
 Useful commands:
 
 ```bash
@@ -25,6 +41,8 @@ npm run doctor                 # verify runtime, settings, build, and SQLite hea
 npm run backup                 # make a consistent private backup
 npm run launch -- --no-open    # start without opening a browser
 npm run launch -- --port=3001  # use another local port
+npm run restart                # load new code: stop the dashboard, rebuild if needed, start it again
+node scripts/launch.mjs --background  # start detached, log to logs/launch.log, and exit once ready
 ```
 
 ## First-run setup
@@ -68,6 +86,18 @@ The top of Today is about doing, not reading. It uses only local data and makes 
 - **Weekly review** summarizes the last seven days: shipped days, tasks completed and agent reports by project, projects with no activity, and stuck tasks.
 
 Shutdown notes are stored in the local SQLite database and are included in `npm run backup`.
+
+## Ideas
+
+The **Ideas** tab keeps ideas separate from tasks so they can grow before you commit to them.
+
+- **Capture:** add an idea in the tab, or let a project agent propose one in its handoff report (see [docs/PROJECT_HANDOFFS.md](docs/PROJECT_HANDOFFS.md)). Agent proposals wait under **Waiting for you** until you choose Keep or Dismiss; dismissed proposals never come back.
+- **Growth:** notes from you, and from agents in later sessions, build a timeline on each idea. Agents add notes by the idea's dashboard id, which the shared exporter prints with `--list-ideas` (see the handoff docs).
+- **Connections:** link ideas to each other by hand, or run **Connect** to get suggested links between ideas and to recent Industry and newsletter stories, each with a reason, to accept or reject. Accepted links form the clusters on the idea map.
+- **Graveyard guard:** growing ideas with no note and no review for 21 days appear under **Needs a look** and in Today's weekly review, with Keep, Park or Drop.
+- **Promote to task:** turns an idea into one task that links back to it.
+
+AI is off by default. **Use AI for ideas** in the tab enables **Summarise** and **Connect**, which send idea titles, notes (including agent-written notes) and recent story headlines to your selected provider. Connect runs at most once an hour.
 
 ## Industry collection
 
