@@ -32,6 +32,8 @@ npm run autostart:remove    # stop starting it at sign-in
 
 This registers a per-user scheduled task named **Control Center** that runs the launcher hidden, without administrator rights. It runs Node directly rather than npm, and the launcher exits once the dashboard answers, so only the server stays in memory. Output goes to `logs/launch.log`. To start it right away without signing out, run `Start-ScheduledTask -TaskName "Control Center"` in PowerShell. Collectors keep refreshing every 15 minutes while it runs, so expect it to use some memory in the background. If you changed the source code since the last build, the first start after sign-in rebuilds the app first and takes a minute or two. If you move the project folder, run `npm run autostart:install` again from the new location.
 
+You never need to reinstall the app to get new code: it is a window onto the local server. When the code on disk is newer than what is running, the dashboard shows **Restart now** at the top of the page. It waits for pending saves, restarts (rebuilding first if the source changed), and reloads the page. `npm run restart` does the same from a terminal. If the new code does not build, the previous version is put back and started, and the build errors are in `logs/launch.log`. A dashboard started in a terminal with `npm run launch` comes back hidden in the background after a restart.
+
 Useful commands:
 
 ```bash
@@ -39,6 +41,7 @@ npm run doctor                 # verify runtime, settings, build, and SQLite hea
 npm run backup                 # make a consistent private backup
 npm run launch -- --no-open    # start without opening a browser
 npm run launch -- --port=3001  # use another local port
+npm run restart                # load new code: stop the dashboard, rebuild if needed, start it again
 node scripts/launch.mjs --background  # start detached, log to logs/launch.log, and exit once ready
 ```
 

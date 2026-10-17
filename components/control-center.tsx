@@ -90,6 +90,7 @@ import { MAX_FIRST_STEP_LENGTH, isStuck, postponeTask } from "@/lib/focus";
 import { FocusPanel } from "@/components/focus-panel";
 import { ProjectUpdates } from "@/components/project-updates";
 import { IdeasView } from "@/components/ideas-view";
+import { UpdateBanner } from "@/components/update-banner";
 import { taskMatchesProject } from "@/lib/project-handoffs";
 import type { ProjectHandoff, HandoffAction, SavedHandoff } from "@/lib/project-handoffs";
 import {
@@ -3984,6 +3985,12 @@ export function ControlCenter() {
         </div>
       </header>
       <main key={activeTab}>
+        <UpdateBanner
+          beforeRestart={async () => {
+            await workspaceSaveQueue.current;
+            if (workspaceSaveFailed.current) throw new Error("Your latest changes are not saved yet. Fix the save problem shown below, then restart.");
+          }}
+        />
         {workspaceSaveError && (
           <div className="workspace-save-error" role="alert">
             <CircleAlert size={16} />

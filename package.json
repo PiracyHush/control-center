@@ -10,6 +10,7 @@
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "launch": "node scripts/launch.mjs",
+    "restart": "node scripts/restart.mjs",
     "doctor": "node scripts/doctor.mjs",
     "backup": "node scripts/backup.mjs",
     "ingest": "node scripts/ingest.mjs",
