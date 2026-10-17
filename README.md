@@ -30,7 +30,7 @@ npm run autostart:status    # is the task registered, and is the dashboard runni
 npm run autostart:remove    # stop starting it at sign-in
 ```
 
-This registers a per-user scheduled task named **Control Center** that runs the launcher hidden, without administrator rights. Output goes to `logs/launch.log`. To start it right away without signing out, run `Start-ScheduledTask -TaskName "Control Center"` in PowerShell. Collectors keep refreshing every 15 minutes while it runs, so expect it to use some memory in the background. If you changed the source code since the last build, the first start after sign-in rebuilds the app first and takes a minute or two. If you move the project folder, run `npm run autostart:install` again from the new location.
+This registers a per-user scheduled task named **Control Center** that runs the launcher hidden, without administrator rights. It runs Node directly rather than npm, and the launcher exits once the dashboard answers, so only the server stays in memory. Output goes to `logs/launch.log`. To start it right away without signing out, run `Start-ScheduledTask -TaskName "Control Center"` in PowerShell. Collectors keep refreshing every 15 minutes while it runs, so expect it to use some memory in the background. If you changed the source code since the last build, the first start after sign-in rebuilds the app first and takes a minute or two. If you move the project folder, run `npm run autostart:install` again from the new location.
 
 Useful commands:
 
@@ -39,6 +39,7 @@ npm run doctor                 # verify runtime, settings, build, and SQLite hea
 npm run backup                 # make a consistent private backup
 npm run launch -- --no-open    # start without opening a browser
 npm run launch -- --port=3001  # use another local port
+node scripts/launch.mjs --background  # start detached, log to logs/launch.log, and exit once ready
 ```
 
 ## First-run setup
