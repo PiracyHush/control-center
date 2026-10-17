@@ -21,6 +21,7 @@ export default function manifest(): MetadataRoute.Manifest {
     shortcuts: [
       { name: "Today", url: "/?tab=today" },
       { name: "Tasks", url: "/?tab=tasks" },
+      { name: "Ideas", url: "/?tab=ideas" },
       { name: "Updates", url: "/?tab=updates" },
     ],
   };

@@ -165,6 +165,21 @@ export function FocusPanel({
     };
   }, []);
 
+  const [untouchedIdeas, setUntouchedIdeas] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/ideas")
+      .then(async (response) => {
+        const body = (await response.json()) as { ideas?: { untouched?: boolean }[] };
+        if (!response.ok || cancelled) return;
+        setUntouchedIdeas((body.ideas ?? []).filter((idea) => idea.untouched === true).length);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const activity = useMemo(
     () => projectActivity(projects, tasks, history.reports, now),
     [projects, tasks, history.reports, now],
@@ -613,6 +628,9 @@ export function FocusPanel({
               .join(", ")}
           </p>
         )}
+        <p>
+          <b>Ideas untouched for 21+ days:</b> {untouchedIdeas}
+        </p>
         <p>
           <b>Put off {STUCK_POSTPONE_COUNT} or more times:</b>{" "}
           {review.stuck.length

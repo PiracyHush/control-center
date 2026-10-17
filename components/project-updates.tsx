@@ -9,7 +9,7 @@ import type { HandoffSourceStatus } from "@/lib/handoff-files";
 export function ProjectUpdates({ projects, onImport, openSettings }: {
   projects: ProjectRoute[];
   openSettings: () => void;
-  onImport: (report: ProjectHandoff, actions: HandoffAction[]) => Promise<{ reports: SavedHandoff[]; added: number }>;
+  onImport: (report: ProjectHandoff, actions: HandoffAction[]) => Promise<{ reports: SavedHandoff[]; added: number; ideas?: { ideasProposed: number; ideasSkipped: number; notesAdded: number; notesIgnored: number } }>;
 }) {
   const [reports, setReports] = useState<SavedHandoff[]>([]);
   const [filter, setFilter] = useState("");
@@ -75,7 +75,14 @@ export function ProjectUpdates({ projects, onImport, openSettings }: {
     try {
       const result = await onImport(preview, drafts.filter((action) => selected.includes(action.id)));
       setReports(result.reports); setPreview(null);
-      setNotice(`Report saved. ${result.added} new task${result.added === 1 ? "" : "s"} added. Previously accepted actions were preserved.`);
+      const ideas = result.ideas;
+      const ideaNotice = !ideas ? "" : [
+        ideas.ideasProposed && `${ideas.ideasProposed} idea${ideas.ideasProposed === 1 ? "" : "s"} waiting in Ideas.`,
+        ideas.ideasSkipped && `${ideas.ideasSkipped} idea${ideas.ideasSkipped === 1 ? " was" : "s were"} not added (500 active ideas is the limit, so park or drop some).`,
+        ideas.notesAdded && `${ideas.notesAdded} idea note${ideas.notesAdded === 1 ? "" : "s"} added.`,
+        ideas.notesIgnored && `${ideas.notesIgnored} idea note${ideas.notesIgnored === 1 ? " was" : "s were"} ignored because the idea is closed or missing.`,
+      ].filter(Boolean).join(" ");
+      setNotice(`Report saved. ${result.added} new task${result.added === 1 ? "" : "s"} added. Previously accepted actions were preserved.${ideaNotice ? ` ${ideaNotice}` : ""}`);
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Import failed."); }
     finally { setBusy(false); }
   }
@@ -119,5 +126,5 @@ export function ProjectUpdates({ projects, onImport, openSettings }: {
   </div>;
 }
 function ReportLists({ report }: { report: ProjectHandoff }) {
-  return <>{([ ["Completed", report.completed], ["Evidence", report.evidence], ["Decisions needed", report.decisions] ] as const).map(([heading, entries]) => <div key={heading}><h3>{heading}</h3>{entries.length ? <ul>{entries.map((entry, index) => <li key={index}>{entry}</li>)}</ul> : <p>None reported.</p>}</div>)}</>;
+  return <>{report.ideas?.length ? <div><h3>Side ideas ({report.ideas.length})</h3><p>These wait for Keep in the Ideas tab.</p><ul>{report.ideas.map((idea, index) => <li key={index}>{idea.title}</li>)}</ul></div> : null}{report.ideaNotes?.length ? <div><h3>Notes on existing ideas ({report.ideaNotes.length})</h3><ul>{report.ideaNotes.map((note, index) => <li key={index}>{note.body}</li>)}</ul></div> : null}{([ ["Completed", report.completed], ["Evidence", report.evidence], ["Decisions needed", report.decisions] ] as const).map(([heading, entries]) => <div key={heading}><h3>{heading}</h3>{entries.length ? <ul>{entries.map((entry, index) => <li key={index}>{entry}</li>)}</ul> : <p>None reported.</p>}</div>)}</>;
 }

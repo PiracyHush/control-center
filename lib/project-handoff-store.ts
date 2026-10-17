@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { ProjectHandoff, HandoffAction, SavedHandoff } from "./project-handoffs";
 import { readWorkspaceState } from "./workspace-store";
 import type { TaskItem } from "./types";
+import { applyHandoffIdeas, initializeIdeaStore, type HandoffIdeasResult } from "./idea-store";
 
 export function initializeHandoffStore(db: DatabaseSync) {
   db.exec(`CREATE TABLE IF NOT EXISTS project_handoffs (
@@ -10,7 +11,8 @@ export function initializeHandoffStore(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS handoff_actions (
     project_id TEXT NOT NULL, action_id TEXT NOT NULL, task_id TEXT NOT NULL,
     PRIMARY KEY(project_id, action_id));`);
-  return db;
+  // Importing a report also writes ideas and notes, so their tables must exist too.
+  return initializeIdeaStore(db);
 }
 export function listHandoffs(db: DatabaseSync): SavedHandoff[] {
   return (db.prepare("SELECT payload, imported_at FROM project_handoffs ORDER BY imported_at DESC").all() as unknown as { payload: string; imported_at: string }[])
@@ -22,7 +24,11 @@ export function importHandoff(db: DatabaseSync, report: ProjectHandoff, accepted
     const previous = db.prepare("SELECT payload FROM project_handoffs WHERE project_id=? AND report_id=?").get(report.projectId, report.id) as { payload: string } | undefined;
     const payload = JSON.stringify(report);
     if (previous && previous.payload !== payload) throw new Error("This report ID already exists with different content. Use a new report ID for each session.");
-    db.prepare("INSERT OR IGNORE INTO project_handoffs VALUES (?, ?, ?, ?)").run(report.projectId, report.id, payload, now);
+    const inserted = db.prepare("INSERT OR IGNORE INTO project_handoffs VALUES (?, ?, ?, ?)").run(report.projectId, report.id, payload, now);
+    // Ideas and notes apply once, when the report is first stored; re-imports never duplicate them.
+    const ideas: HandoffIdeasResult = inserted.changes
+      ? applyHandoffIdeas(db, report, now)
+      : { ideasProposed: 0, ideasSkipped: 0, notesAdded: 0, notesIgnored: 0 };
     const workspace = readWorkspaceState(db);
     let added = 0;
     for (const action of accepted) {
@@ -41,6 +47,6 @@ export function importHandoff(db: DatabaseSync, report: ProjectHandoff, accepted
     write.run("reminders", JSON.stringify(workspace.reminders), now);
     const reports = listHandoffs(db);
     db.exec("COMMIT");
-    return { reports, workspace, added };
+    return { reports, workspace, added, ideas };
   } catch (error) { db.exec("ROLLBACK"); throw error; }
 }

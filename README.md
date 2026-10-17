@@ -83,6 +83,18 @@ The top of Today is about doing, not reading. It uses only local data and makes 
 
 Shutdown notes are stored in the local SQLite database and are included in `npm run backup`.
 
+## Ideas
+
+The **Ideas** tab keeps ideas separate from tasks so they can grow before you commit to them.
+
+- **Capture:** add an idea in the tab, or let a project agent propose one in its handoff report (see [docs/PROJECT_HANDOFFS.md](docs/PROJECT_HANDOFFS.md)). Agent proposals wait under **Waiting for you** until you choose Keep or Dismiss; dismissed proposals never come back.
+- **Growth:** notes from you, and from agents in later sessions, build a timeline on each idea. Agents add notes by the idea's dashboard id, which the shared exporter prints with `--list-ideas` (see the handoff docs).
+- **Connections:** link ideas to each other by hand, or run **Connect** to get suggested links between ideas and to recent Industry and newsletter stories, each with a reason, to accept or reject. Accepted links form the clusters on the idea map.
+- **Graveyard guard:** growing ideas with no note and no review for 21 days appear under **Needs a look** and in Today's weekly review, with Keep, Park or Drop.
+- **Promote to task:** turns an idea into one task that links back to it.
+
+AI is off by default. **Use AI for ideas** in the tab enables **Summarise** and **Connect**, which send idea titles, notes (including agent-written notes) and recent story headlines to your selected provider. Connect runs at most once an hour.
+
 ## Industry collection
 
 Each configured URL is treated independently and can belong to any niche.
