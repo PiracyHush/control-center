@@ -1,12 +1,53 @@
-.view { display: grid; gap: 20px; }
-.toolbar { display: flex; flex-wrap: wrap; gap: 20px; }
-.toolbar label, .action label { display: grid; gap: 8px; }
-.toolbar select, .action input:not([type="checkbox"]), .action select { padding: 10px; border: 1px solid var(--line); border-radius: 8px; color: inherit; background: var(--surface); }
-.card { padding: 24px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow-wrap: anywhere; }
-.card h2 { margin-bottom: 12px; }
-.card h3 { margin-top: 18px; }
-.card p, .card ul { margin: 12px 0; line-height: 1.6; }
-.card ul { padding-left: 22px; }
-.card summary { cursor: pointer; }
-.action { margin: 16px 0; padding: 16px; border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 12px; }
-.action label:first-child { display: flex; align-items: center; }
+.view { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.muted { color: var(--muted); }
+
+.head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.head h1 { margin-bottom: 6px; }
+.head p { margin: 0; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.filter { display: grid; gap: 6px; font-size: 11px; color: var(--muted); }
+.filter select, .action input:not([type="checkbox"]), .action select { padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; color: inherit; background: var(--surface); }
+.importButton { position: relative; cursor: pointer; }
+.importButton input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.importButton[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+
+.alert, .notice { margin: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: 16px; align-items: start; }
+.card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow-wrap: anywhere; }
+.cardHead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.cardHead h2 { margin: 0; margin-right: auto; font-size: 20px; }
+.cardHead time { color: var(--faint); font-size: 11px; }
+.status { padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: .02em; }
+.working { color: var(--teal); background: var(--teal-soft); }
+.blocked { color: var(--coral); background: var(--coral-soft); }
+.needsReview { color: var(--ink); background: color-mix(in srgb, var(--yellow) 32%, transparent); }
+.summary { margin: 0; line-height: 1.55; }
+
+.lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.list { min-width: 0; }
+.list h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.list h3 span { padding: 1px 7px; border-radius: 999px; background: var(--surface-soft, var(--line)); color: var(--muted); font-size: 10px; letter-spacing: 0; }
+.list ul { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.list li { position: relative; padding-left: 18px; font-size: 13px; line-height: 1.45; }
+.list li::before { position: absolute; left: 0; top: 0; font-weight: 700; }
+.done li::before { content: "✓"; color: var(--teal); }
+.next li::before { content: "○"; color: var(--coral); }
+.list li b { margin-right: 6px; padding: 0 6px; border-radius: 4px; background: var(--coral-soft); color: var(--coral); font-size: 10px; font-weight: 600; }
+.list p { margin: 0; font-size: 12px; }
+.list button { margin-top: 6px; }
+
+.cardFoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; }
+
+.review .reviewHeading { margin: 6px 0 0; font-size: 14px; }
+.action { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+.action label { display: grid; gap: 6px; font-size: 12px; }
+.action p { margin: 0; font-size: 12px; }
+.action .accept { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.actionRow { display: flex; flex-wrap: wrap; gap: 12px; }
+.reviewButtons { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.setup { padding: 14px 18px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); font-size: 12px; }
+.setup summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+.setup p { margin: 10px 0 0; line-height: 1.6; }
+.setup p button { margin: 4px 6px 0 0; }
